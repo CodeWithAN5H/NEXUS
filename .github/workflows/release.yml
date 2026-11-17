@@ -39,7 +39,9 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          # On a tag push, build that tag. On a manual run, build the branch the
+          # workflow was started from (the tag is created by the release step).
+          ref: ${{ github.event_name == 'push' && github.ref_name || '' }}
           fetch-depth: 0
 
       - name: Verify tag matches pubspec version
@@ -146,6 +148,18 @@ jobs:
 
             Download `NEXUS-${{ steps.version.outputs.tag }}-universal.apk` below and open it on your Android device (API 24+).
             To update an existing install, install over it — **do not uninstall**, which deletes your library, history and settings.
+
+            ## What is verified in this build
+
+            - `dart format`, `flutter analyze` and `flutter test` passed in CI for this commit.
+            - The APK's package id, version code and permissions were inspected with `aapt2`.
+            - The APK is signed with the NEXUS release certificate (checked with `apksigner`; debug signing is rejected).
+
+            ## What is not verified
+
+            - **The app has not been launched on a physical Android device or emulator by the maintainers.** Layout, animations and video decoding are untested in this build.
+            - Windows builds are not produced here.
+            - No anime streaming source is included; the built-in test library uses public Apple/Mux HLS examples and is labelled `SAMPLE` in the player.
 
             ## Signature
 

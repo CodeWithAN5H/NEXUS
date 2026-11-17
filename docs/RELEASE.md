@@ -111,7 +111,9 @@ The workflow then:
 
 A failing analyze or test run blocks the release — the tag stays, but no APK is published.
 
-To rebuild an existing tag (after fixing CI), run the workflow manually: **Actions → Release APK → Run workflow**, enter the tag.
+You can also publish without touching a terminal: **Actions → Release APK → Run workflow**, enter `v0.1.0-alpha`. That builds the branch you selected and creates the tag at that commit, so no local tag push is needed. Re-running it for an existing tag rebuilds and replaces the attached assets.
+
+Note that the tag must match `pubspec.yaml` (`version: 0.1.0-alpha+N` → tag `v0.1.0-alpha`); the workflow fails early otherwise.
 
 ## 5. What a release contains
 

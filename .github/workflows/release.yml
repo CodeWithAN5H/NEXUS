@@ -1,0 +1,173 @@
+name: Release APK
+
+# Builds a release-signed APK and publishes it as a GitHub Release.
+# The signing keystore never exists in this repository: it is decoded from
+# repository secrets at build time and deleted with the runner.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to publish (e.g. v0.1.0-alpha)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve version tag
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          case "$TAG" in
+            v[0-9]*) ;;
+            *) echo "::error::Tag '$TAG' must look like v0.1.0-alpha"; exit 1 ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Verify tag matches pubspec version
+        run: |
+          PUBSPEC_VERSION="$(sed -n 's/^version:[[:space:]]*\([^+ ]*\).*/\1/p' pubspec.yaml)"
+          if [ "$PUBSPEC_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::pubspec.yaml has version $PUBSPEC_VERSION but the tag is ${{ steps.version.outputs.version }}"
+            exit 1
+          fi
+
+      - name: Require signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=""
+          [ -z "$KEYSTORE_BASE64" ] && missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -z "$KEYSTORE_PASSWORD" ] && missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          [ -z "$KEY_ALIAS" ] && missing="$missing ANDROID_KEY_ALIAS"
+          [ -z "$KEY_PASSWORD" ] && missing="$missing ANDROID_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing. Refusing to publish a debug-signed APK."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.50.0
+          channel: stable
+          cache: true
+
+      - name: Install dependencies and generate code
+        run: |
+          flutter pub get
+          dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Configure release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          KEYSTORE_PATH="$RUNNER_TEMP/nexus-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
+          cat > android/key.properties <<EOF
+          storeFile=$KEYSTORE_PATH
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          chmod 600 "$KEYSTORE_PATH" android/key.properties
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Verify package identity, signing and checksum
+        id: verify
+        run: |
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+
+          echo "### APK verification" >> "$GITHUB_STEP_SUMMARY"
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" | head -3 | tee -a "$GITHUB_STEP_SUMMARY"
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | head -3 | tee -a "$GITHUB_STEP_SUMMARY"
+
+          # A debug certificate here means the signing step failed: never publish it.
+          if "$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | grep -qi 'Android Debug'; then
+            echo "::error::APK is debug-signed. Refusing to publish."
+            exit 1
+          fi
+
+          PACKAGE="$(sed -n "s/.*package: name='\([^']*\)'.*/\1/p" <("$BUILD_TOOLS/aapt2" dump badging "$APK"))"
+          echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
+
+          NAME="NEXUS-${{ steps.version.outputs.tag }}-universal.apk"
+          cp "$APK" "$NAME"
+          sha256sum "$NAME" > SHA256SUMS.txt
+          cat SHA256SUMS.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "apk=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: NEXUS ${{ steps.version.outputs.tag }}
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            Download `NEXUS-${{ steps.version.outputs.tag }}-universal.apk` below and open it on your Android device (API 24+).
+            To update an existing install, install over it — **do not uninstall**, which deletes your library, history and settings.
+
+            ## Signature
+
+            This APK is signed with the NEXUS release key. Never install a build signed by a different key over it.
+
+            ## Checksum
+
+            See `SHA256SUMS.txt` attached to this release:
+
+            ```
+            sha256sum -c SHA256SUMS.txt
+            ```
+
+            ## Notes
+
+            Full feature list, known limitations and verification status: [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) and [PROJECT_STATUS.md](https://github.com/${{ github.repository }}/blob/main/PROJECT_STATUS.md).
+
+            No anime streaming source ships with NEXUS; the built-in test library uses public Apple/Mux HLS examples and is labelled `SAMPLE` in the player.
+          files: |
+            ${{ steps.verify.outputs.apk }}
+            SHA256SUMS.txt
+
+      - name: Clean up signing material
+        if: always()
+        run: rm -f android/key.properties "$RUNNER_TEMP/nexus-release.jks"

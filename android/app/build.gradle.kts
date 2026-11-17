@@ -37,8 +37,9 @@ android {
     }
 
     defaultConfig {
-        // Provisional application id — must be confirmed by the project owner
-        // before the first published release and never changed afterwards.
+        // Permanent application id, confirmed by the project owner on 2026-11-17.
+        // Changing it after distribution forces every user to uninstall, which
+        // deletes their local library and history. See docs/RELEASE.md.
         applicationId = "app.nexus"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.

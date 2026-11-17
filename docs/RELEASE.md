@@ -6,7 +6,7 @@ This file is the source of truth for how NEXUS is versioned, signed and distribu
 
 | Item | Value | Status |
 |---|---|---|
-| Application id | `app.nexus` | **Provisional** — must be confirmed by the owner before the first published APK, then never changed |
+| Application id | `app.nexus` | **Confirmed permanent** by the owner on 2026-11-17 — never change |
 | Release keystore | `nexus-release.jks`, held by the owner (and in GitHub Actions secrets) | **Not created yet** — requires owner action; see §3 |
 | Signing algorithm | RSA 2048, validity 10 000 days | Planned |
 

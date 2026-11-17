@@ -1,8 +1,9 @@
 # NEXUS — Project Status
 
 **Last updated:** 2026-11-17
-**Milestone:** v0.1.0-alpha — shipped (first installable Android build)
-**Branch state:** working tree contains the full M0 implementation; nothing has been committed or pushed yet.
+**Milestone:** v0.1.0-alpha — committed and pushed to `main`; release pending signing secrets
+**Source of truth:** https://github.com/CodeWithAN5H/NEXUS (branch `main`)
+**Application id:** `app.nexus` — confirmed permanent 2026-11-17
 
 ---
 
@@ -125,7 +126,7 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 
 **Engineering**
 11. Release signing not yet established (blocked on owner approval).
-12. Application id `app.nexus` is provisional.
+12. Application id `app.nexus` is permanent as of 2026-11-17 (confirmed by the owner).
 13. Linux desktop not configured (no clang/CMake/GTK in this image) — out of scope for v0.1.
 14. `dart format` and `flutter analyze` are clean, but there is no CI pipeline yet.
 
@@ -148,7 +149,7 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 
 | Decision | Needed for | Note |
 |---|---|---|
-| Confirm `app.nexus` as the permanent application id | First published APK | Permanent once distributed; asked before the first release |
+| Add the 4 signing secrets to the repository | Publishing the first signed release | Owner creates and backs up the keystore locally (docs/RELEASE.md §3) |
 | Create the release keystore and add 4 Actions secrets | Signed releases and in-place updates | Key must be generated and backed up by the owner; it cannot be safely created or preserved in this cloud workspace |
 | Choose an authorised content provider | Real anime playback | NEXUS will not integrate unauthorised sources |
 | Confirm `main` is the release branch | Tag-triggered publishing | Nothing has been pushed yet |

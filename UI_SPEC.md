@@ -130,6 +130,8 @@ Grouped sections: Appearance (grid density, reduce motion), Playback (autoplay, 
 
 Intro notice that no anime source ships with the app; one card per registered provider with status chip, description, capability chips, attribution, enable switch and **Test playback** (generic: searches the provider catalogue, opens the first episode).
 
+**Planned for v0.2 (specified in [docs/PROVIDERS.md](docs/PROVIDERS.md) §2, §6; not implemented and not yet designed in detail):** the same cards, but the chip reports the derived provider state — *Ready · Test content only · Setup required · Sign-in rejected · Needs a newer NEXUS · Not available on this platform · Temporarily unavailable · Off* — each with the one action that can change it. Cards gain priority ordering, a generated configuration sheet for providers that declare fields, a per-provider diagnostic view, and Remove (with a confirmation that states library and history are untouched). The existing layout, tokens and components are reused; no visual redesign is part of this specification.
+
 ### 4.9 Player
 
 Full-window black surface. Artwork fills via `Video` (contain), subtitles styled from the size preference with a translucent background.

@@ -15,15 +15,67 @@ Milestones are ordered by value, not dates. Each one ends with a verified build 
 
 **Exit criteria met:** installable APK where discovery, details and library work with persistent data.
 
-## v0.2.0-alpha — Real content and deeper catalogues
+## v0.2.0-alpha — Provider platform, real content and deeper catalogues
 
-- Register an **authorised** provider implementation (owner decision required — see “Blocked” below).
+The milestone is sequenced: 2.1 and 2.2 are the platform the rest depends on;
+2.3 can land after 2.2 on its own; 2.4–2.6 are independent of each other.
+The normative provider specification is [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
+**2.1 — Provider platform core**
+
+- Split the contract into two kinds: `MetadataProvider` (AniList as the first
+  implementation, no longer wired directly into screens) and `StreamingProvider`.
+- Separate **compatibility** (can this build run it) from **configuration**
+  (has the user supplied what it needs) from **availability** (can it serve a
+  request now); derive one presentation state from the three.
+- Add a provider descriptor envelope: stable id, contract version, attribution,
+  declared capabilities, declared configuration fields, install origin.
+- Asynchronous `probe()` returning a timestamped status snapshot instead of a
+  synchronous status getter; mandatory `dispose()`.
+- Sealed `ProviderFailure` taxonomy (not configured, auth rejected, not found,
+  rate limited, geo-restricted, upstream, timeout, parse, unsupported,
+  cancelled) mapped to `AppFailure` with actionable copy.
+- Resolution collects **all** matching providers instead of stopping at the
+  first, honours a user priority order, and records a per-title source
+  preference; per-provider failures stay visible without failing the screen.
+
+**2.2 — User-managed provider configuration**
+
+- Extensible provider integration system: built-in adapters registered in one
+  bootstrap file, plus an installable integration path for compatible sources.
+- User-managed provider configuration: install, configure, enable, prioritise,
+  disable and remove providers independently; disabling never discards settings.
+- Declarative configuration schema rendered by Settings → Sources (text, URL,
+  secret, choice, boolean) with validation; secrets in the platform keystore,
+  never in SQLite or logs.
+- Persistence for installed providers, their non-secret configuration and their
+  order (additive schema migration — see [docs/PROVIDERS.md](docs/PROVIDERS.md) §9).
+- Declarative JSON integration format executed by one generic adapter, so a
+  compatible catalogue can be added without a new APK (sandboxed: HTTPS only,
+  origin-pinned, JSON-path mapping only, no scripting).
+- Sources screen shows availability, compatibility and configuration as
+  distinct states, with a per-provider diagnostic view.
+
+**2.3 — Real content**
+
+- Register an **authorised** provider implementation (owner decision required — see “Blocked” below), through either integration tier.
 - Replace the "no source available" episode state with real episode lists for matched titles.
+- Provider-supplied subtitle tracks surfaced in the player menu, with language labels and a clear "this source has none" state.
+
+**2.4 — Catalogue depth**
+
 - Infinite scroll / paging in Explore and rails.
-- Episode-level metadata from AniList (`streamingEpisodes`, air dates) for the Details tab.
-- External subtitle selection surfaced in the player menu from provider tracks.
-- **Windows build verification** on a Windows host (MSVC + `flutter build windows`).
+- Episode-level metadata from AniList (`streamingEpisodes`, air dates) for the Details tab, merged with provider episodes by absolute number.
+
+**2.5 — Platform and branding**
+
+- **Windows build verification** on a Windows host (MSVC + `flutter build windows`), including the provider management surface at desktop width.
 - Custom launcher icon and Android splash from the brand mark.
+
+**Exit criteria:** metadata still works with every streaming provider removed; a
+compatible provider can be added and configured without restructuring the app
+(user-added integration where the tier is adopted, otherwise one adapter file);
+and real episode lists and subtitles appear for matched titles.
 
 ## v0.3.0-alpha — Playback hardening
 
@@ -60,8 +112,9 @@ Milestones are ordered by value, not dates. Each one ends with a verified build 
 
 | Item | Why it blocks | What is needed |
 |---|---|---|
-| Anime content provider | NEXUS will not ship unauthorised sources | Owner selects an authorised provider (or supplies API access); implementation follows the existing contract |
-| Application id | Permanent once distributed | Confirm `app.nexus` before the first published APK |
+| Anime content provider | NEXUS will not ship unauthorised sources | Owner selects an authorised provider (or supplies API access); implementation follows the contract in [docs/PROVIDERS.md](docs/PROVIDERS.md) |
+| Installable integration tier | The app ships no provider catalogue, and an unverified format with no real provider to validate it risks becoming an abandonment trap | Owner confirms whether v0.2 includes the declarative (user-added) tier or only the built-in adapter path; both are specified |
+| Application id | Permanent once distributed | **Resolved:** `app.nexus` confirmed permanent by the owner on 2026-11-17 — no action needed |
 | Release keystore | Signing identity must never change | Owner approves keystore creation and stores it securely; `android/key.properties` then enables signed builds |
 | GitHub Releases channel | Distribution | Owner authorises repository releases and the update-check source |
 | Windows build | Needs a Windows host | Access to Windows with Visual Studio C++ workload |
@@ -69,6 +122,8 @@ Milestones are ordered by value, not dates. Each one ends with a verified build 
 ## Later / evaluated
 
 - Linux desktop (media_kit libs already cover it; shell is platform-agnostic).
+- Signed, shareable integration manifests with a review checklist, if v0.2's declarative tier is adopted.
+- Additional metadata providers behind the same interface (see `MetadataCapability`).
 - Optional sync backend (Supabase free tier or self-hosted) behind an opt-in toggle.
 - Offline downloads where a provider permits it.
 - MyAnimeList as a second metadata/tracking source.

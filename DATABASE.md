@@ -74,6 +74,10 @@ Preferences live in SQLite rather than `SharedPreferences` so library, history a
 
 Keys: `playback.autoplay_next`, `playback.remember_position`, `playback.quality_height`, `subtitles.size`, `audio.language`, `sources.enabled`, `appearance.grid_density`, `appearance.reduce_motion`.
 
+`sources.enabled` is a comma-separated set of provider ids and is the only
+provider state in schema v1. It cannot express configuration, ordering or install
+origin; §6 replaces it in v0.2.
+
 ## 3. Migration policy
 
 1. **Never drop user data.** No `deleteAll`, no "clear app data to update".
@@ -130,7 +134,30 @@ CREATE INDEX idx_library_status ON library_entries(status);
 CREATE INDEX idx_progress_updated ON progress_entries(updated_at DESC);
 ```
 
-## 6. Future (not implemented)
+## 6. Planned schema v2 — provider platform (not implemented)
+
+Specified by [docs/PROVIDERS.md](docs/PROVIDERS.md) §9 for v0.2. Nothing here
+exists yet; this section records the intended additive migration so the schema
+revision is not improvised later. No existing table or column is altered.
+
+| Table | Columns | Notes |
+|---|---|---|
+| `provider_entries` | `provider_id` TEXT **PK**, `origin` TEXT (builtIn/userAdded), `manifest_version` TEXT, `contract_version` INTEGER, `enabled` INTEGER (bool), `priority` INTEGER, `config_json` TEXT, `installed_at` DATETIME | One row per installed provider. `config_json` holds **non-secret** values only. |
+| `provider_title_prefs` | `anime_id` INTEGER, `provider_id` TEXT, composite **PK** | The user's chosen source per title; deleting it falls back to priority order. |
+| `provider_manifests` | `provider_id` TEXT **PK**, `manifest_json` TEXT, `source_url` TEXT, `installed_at` DATETIME | Only for user-added declarative integrations. |
+
+Rules for the migration:
+
+1. `onUpgrade` from 1 → 2 creates the tables and backfills `provider_entries`
+   from the existing `sources.enabled` preference (split on `,`).
+2. The old preference key stays readable for one release and is then dropped from
+   `AppSettings`, with defaults preserved for anything missing.
+3. Secrets never enter these tables — they go to the platform keystore keyed
+   `provider.<id>.<field>`.
+4. `progress_entries.provider_id`/`series_id` remain optional resume hints; no
+   foreign key is added, so removing a provider must not cascade.
+
+## 7. Future (not implemented)
 
 - **Sync metadata**: `server_id`, `synced_at`, `dirty` columns plus a per-table change log for Supabase (or self-hosted) sync.
 - **Export/import**: JSON dump of library, history and settings for device migration.

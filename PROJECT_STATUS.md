@@ -1,7 +1,8 @@
 # NEXUS — Project Status
 
-**Last updated:** 2026-11-17
+**Last updated:** 2026-11-18
 **Milestone:** v0.1.0-alpha — committed and pushed to `main`; release pending signing secrets
+**Latest change:** provider architecture finalised for v0.2 — documentation only, no source, schema, UI or workflow change (§8)
 **Source of truth:** https://github.com/CodeWithAN5H/NEXUS (branch `main`)
 **Application id:** `app.nexus` — confirmed permanent 2026-11-17
 
@@ -134,12 +135,17 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 
 ## 6. Next actions
 
-**Immediate (v0.2.0-alpha)**
+**Immediate (v0.2.0-alpha)** — sequenced; details in [ROADMAP.md](ROADMAP.md) and [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
 1. Install the APK on a real Android device; verify launch, rails, search, details, library persistence and playback of the test streams. Record results here.
-2. Verify the Windows build on a Windows host.
-3. Replace the Playback Test Library with the owner's chosen authorised provider (blocked — see below).
-4. Add pagination to Explore and rails.
-5. Ship a custom launcher icon + splash from the brand mark.
+2. Provider platform core: `MetadataProvider` split, descriptor envelope, three axes, `probe()`/`dispose()`, sealed `ProviderFailure`, collect-all resolution with priority and per-title preference.
+3. User-managed provider configuration: install/configure/prioritise/remove, declarative config schema, secrets in the keystore, additive schema v2 (`DATABASE.md` §6).
+4. Declarative integration tier for user-added compatible sources, if the owner confirms it is in v0.2 scope (see blocked table).
+5. Replace the Playback Test Library with the owner's chosen authorised provider through one of the two integration tiers (blocked — see below).
+6. Real episode lists and provider subtitle tracks in the player; AniList `streamingEpisodes` and air dates merged into the Episodes tab.
+7. Add pagination to Explore and rails.
+8. Verify the Windows build on a Windows host.
+9. Ship a custom launcher icon + splash from the brand mark.
 
 **Then (v0.3 → v0.4)**
 6. Playback hardening: buffering reporting, per-title quality memory, PiP, error taxonomy.
@@ -151,8 +157,9 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 |---|---|---|
 | Add the 4 signing secrets to the repository | Publishing the first signed release | Owner creates and backs up the keystore locally (docs/RELEASE.md §3) |
 | Create the release keystore and add 4 Actions secrets | Signed releases and in-place updates | Key must be generated and backed up by the owner; it cannot be safely created or preserved in this cloud workspace |
-| Choose an authorised content provider | Real anime playback | NEXUS will not integrate unauthorised sources |
-| Confirm `main` is the release branch | Tag-triggered publishing | Nothing has been pushed yet |
+| Choose an authorised content provider | Real anime playback | NEXUS will not integrate unauthorised sources; the integration point is now specified in [docs/PROVIDERS.md](docs/PROVIDERS.md) |
+| Adopt the declarative (user-added) integration tier in v0.2 | Letting users add compatible sources without an app update | Fully specified (§7 of `docs/PROVIDERS.md`); it is a larger sub-milestone than the built-in adapter path and changes the Sources surface |
+| Confirm `main` is the release branch | Tag-triggered publishing | `main` is the only branch with the milestone history; nothing has been released yet |
 
 ---
 
@@ -175,3 +182,49 @@ $ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs \
 ```
 
 Without the project-local toolchain, substitute a normal Flutter 3.50 / JDK 17 / Android SDK 36 installation.
+
+---
+
+## 8. Provider platform architecture review — 2026-11-18 (documentation only)
+
+The provider layer was reviewed and finalised before v0.2 development. **No source
+file, database schema, UI, dependency, signing configuration or workflow was
+changed by this review.** Normative result: [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
+**What the review settled**
+
+1. Metadata and streaming are separate provider kinds with separate contracts and
+   registries; AniList becomes the first `MetadataProvider` in v0.2 rather than a
+   concrete client behind `MetadataRepository`.
+2. Compatibility, configuration and availability are three separate axes with one
+   derived presentation state, because each has a different owner and only one is
+   retryable.
+3. Providers are described by a descriptor envelope (stable id, contract version,
+   kind, capabilities, configuration fields, origin) instead of a bare class.
+4. Two integration tiers: built-in Dart adapters registered in one bootstrap file,
+   and user-added declarative JSON integrations run by one sandboxed adapter.
+5. Resolution collects every matching provider, honours user priority and stores a
+   per-title preference, instead of stopping at the first match.
+6. Typed `ProviderFailure` taxonomy replaces free-form `ProviderException`
+   messages, so the UI can offer the right action (setup vs update vs retry).
+
+**Gaps this creates in the current code** (documented, deliberately not fixed yet —
+see `docs/PROVIDERS.md` §12):
+
+| Gap | Consequence today | Where it lands |
+|---|---|---|
+| `ProviderRegistry` is a compile-time `const` list | A provider can only be added by rebuilding the app | v0.2 §2.2 |
+| Only `sources.enabled` is persisted | No configuration, ordering or install origin; removing and re-adding a provider loses settings | v0.2 §2.2 (schema v2) |
+| `ProviderAvailability` is the only axis | `needsConfiguration` is conflated with "the source is down" | v0.2 §2.1 |
+| `status` is a synchronous getter | Availability cannot be refreshed or validated asynchronously | v0.2 §2.1 (`probe()`) |
+| `SourceManager.lookup` returns the first match | A second usable source is invisible | v0.2 §2.1 |
+| `ProviderException` carries a message only | Failure-specific UI (auth vs geo vs rate limit) is not expressible | v0.2 §2.1 |
+| No `dispose()` on the contract | Clients and timers leak when a provider is removed | v0.2 §2.1 |
+| AniList is wired into `MetadataRepository` | A second catalogue requires edits across the data layer | v0.2 §2.1 |
+
+These are additive changes to `lib/integrations/`, the composition root and the
+schema; screens change only where Sources shows the new states. They are not
+implemented in this revision by design.
+
+**Not verified by this review:** nothing runtime-related was re-tested, because no
+code changed. The verification table in §3 still describes the v0.1.0-alpha build.

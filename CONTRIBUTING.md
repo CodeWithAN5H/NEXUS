@@ -59,13 +59,26 @@ Explain *why*, not *what*. A comment that restates the code should be deleted.
 
 ## 6. Adding a content provider
 
+Read [docs/PROVIDERS.md](docs/PROVIDERS.md) first — it is normative, and §12 lists
+what the current code does not yet support (descriptors, configuration,
+compatibility, install/remove). Until that lands, adding a provider means the
+built-in adapter path:
+
 1. Implement `StreamingProvider` in `lib/integrations/streaming/`.
 2. Declare honest `capabilities` and `ProviderStatus`; return `null` from `match()` when there is no entry rather than a best guess.
 3. Mark test/public-domain media with `isSample: true` on `EpisodeStream` so the player shows the `SAMPLE` badge.
-4. Register it in `provider_registry_bootstrap.dart`.
-5. Add tests: capabilities, episodes, resolution, and that real titles are not falsely matched.
+4. Register it in `provider_registry_bootstrap.dart` — the only composition point.
+5. Add tests: capabilities, episodes, resolution, that real titles are not falsely matched, and that failures map to a typed provider error.
 
-Only integrate sources you are authorised to use. Do not add scrapers for protected services, DRM circumvention, or hardcoded third-party stream URLs.
+Rules that a new provider must not break:
+
+- No screen may reference a concrete provider type or branch on provider id; capabilities are the only switch.
+- No provider-specific field may enter a domain model — provider identity is a hint, not a model property.
+- Metadata must keep working with every streaming provider removed.
+- Provider code must not need a schema migration, a route change or a screen change to be added.
+- Disabling or removing a provider must leave library, history, positions and settings intact.
+
+Only integrate sources you are authorised to use. Do not add scrapers for protected services, DRM circumvention, or hardcoded third-party stream URLs. User-added sources use the sandboxed declarative format (HTTPS only, origin-pinned, JSON mapping, no scripting) described in `docs/PROVIDERS.md` §7.
 
 ## 7. Database changes
 
@@ -78,7 +91,7 @@ Only integrate sources you are authorised to use. Do not add scrapers for protec
 
 - Never commit keystores, `android/key.properties`, tokens or API keys.
 - `android/key.properties` is git-ignored and read by `android/app/build.gradle.kts` when present.
-- Tokens (future AniList auth) belong in secure storage at runtime, never in source.
+- Tokens (future AniList auth, provider credentials) belong in secure storage at runtime, never in source, SQLite, preferences, logs or crash reports.
 
 ## 9. Commit messages
 

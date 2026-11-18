@@ -2,6 +2,41 @@
 
 All notable changes to NEXUS are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — provider architecture (documentation only)
+
+No application behaviour changed in this revision: no source file, database
+schema, UI, dependency, signing configuration or workflow was modified. It
+finalises the provider platform and the v0.2 milestone before implementation.
+
+### Added
+
+- `docs/PROVIDERS.md` — normative provider platform specification: two provider
+  kinds, the descriptor envelope, capability sets, the three axes (compatibility,
+  configuration, availability), lifecycle, the streaming contract, the resolution
+  pipeline, the configuration model, the two integration tiers, the error
+  taxonomy, the planned schema-v2 tables, security rules and a review checklist.
+
+### Changed
+
+- `ROADMAP.md` — v0.2 rewritten as a sequenced provider-platform milestone
+  (core → user-managed configuration → real content → catalogue depth → platform
+  and branding). All previously planned v0.2 items are retained; v0.3–v1.0 are
+  unchanged.
+- `ARCHITECTURE.md` — §5 rewritten as the provider platform (two kinds, three
+  axes, registration, resolution); layer map, composition-root graph and decision
+  table updated.
+- `PRD.md` — new §4.6 provider-platform requirements (F-S1–F-S11), constraints and
+  success criteria aligned; metadata-without-streaming added as an invariant.
+- `DATABASE.md` — §6 records the planned additive schema v2 for installed
+  providers, per-title source preferences and user-added manifests (not implemented).
+- `PROJECT_STATUS.md` — §8 documents the review, the architecture gaps it creates
+  and where each is resolved.
+- `UI_SPEC.md` — Sources section notes the planned v0.2 provider management
+  states; no layout was redesigned or implemented.
+- `CONTRIBUTING.md` — provider contribution steps and review checklist aligned with
+  the specification.
+- `README.md` — provider rows and documentation index updated.
+
 ## [0.1.0-alpha] — 2026-11-17
 
 First installable Android build: discovery, details, library, history, settings and a working player with sample media.

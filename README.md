@@ -23,7 +23,7 @@ Everything listed here runs in the app and is backed by real code and local stor
 | Watch history | ✅ | Per-episode positions, resume, delete, clear all |
 | Local database | ✅ | SQLite via Drift, versioned schema, data preserved across restarts (tested) |
 | Metadata | ✅ | AniList GraphQL (trending, seasonal, search, filters, details, relations) |
-| Provider architecture | ✅ | Full `StreamingProvider` contract, registry, source manager, capability reporting |
+| Provider architecture | ✅ design · 🟡 implementation | Contract, registry and source manager ship today; the provider platform (user-installed sources, configuration, priority, typed failures) is specified in [docs/PROVIDERS.md](docs/PROVIDERS.md) and lands in v0.2 |
 | Video player | ✅ | media_kit, custom controls, quality/audio/subtitle menus, speed, resume, auto-next, keyboard shortcuts |
 | Playback test library | ✅ | Two public test streams (Apple, Mux) to verify playback end to end |
 | Settings | ✅ | Appearance, playback, subtitles, audio, sources, AniList status, about/licences |
@@ -32,7 +32,7 @@ Everything listed here runs in the app and is backed by real code and local stor
 
 ### What deliberately does not exist yet
 
-- **No anime video source.** NEXUS ships with the complete provider interface and a clearly labelled *playback test library* made of Apple/Mux public HLS example streams. The project does not implement unauthorised streaming aggregators. Any real source must be authorised and registered through the provider interface — no screen needs to change.
+- **No anime video source.** NEXUS ships with the complete provider interface and a clearly labelled *playback test library* made of Apple/Mux public HLS example streams. The project does not implement unauthorised streaming aggregators. Any real source must be authorised and registered through the provider interface — no screen needs to change. The platform that lets users install and configure their own compatible sources is specified in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 - **No AniList account features.** Metadata is already served by AniList, but signing in, list sync and score updates are not implemented. The Profile screen states this rather than showing a fake "Connected" state.
 - **No cloud sync.** Everything is local. The architecture leaves room for it (see [ARCHITECTURE.md](ARCHITECTURE.md)).
 
@@ -124,7 +124,7 @@ lib/
   integrations/   AniList client, streaming provider contracts, playback session
   features/       home, explore, anime_details, library, history, profile,
                   settings, player
-docs/             release policy
+docs/             release policy, provider platform specification
 test/             unit, database, provider and widget tests
 ```
 
@@ -141,6 +141,7 @@ Workflow for every milestone: analysis + tests → review → commit and push �
 | [PRD.md](PRD.md) | Product requirements and scope |
 | [UI_SPEC.md](UI_SPEC.md) | Approved visual direction, tokens, component inventory |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Layers, decisions, data flow, provider/player abstractions |
+| [docs/PROVIDERS.md](docs/PROVIDERS.md) | Provider platform: kinds, capabilities, configuration, integration tiers, errors |
 | [DATABASE.md](DATABASE.md) | Schema, migration policy, data-preservation guarantees |
 | [ROADMAP.md](ROADMAP.md) | Milestones from v0.1 to v1.0 |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each version |
@@ -154,7 +155,7 @@ Workflow for every milestone: analysis + tests → review → commit and push �
 
 NEXUS is a client. Anime metadata and artwork come from the [AniList](https://anilist.co) public GraphQL API. The only playable media shipped with the app are public example streams published by Apple and Mux for HLS testing, clearly labelled `SAMPLE` in the player. The project contains no scrapers for protected services, no DRM circumvention and no hardcoded third-party stream URLs.
 
-Adding a real source means implementing `StreamingProvider` against a provider you are authorised to use. Doing so requires no changes to the home, details or player screens.
+Adding a real source means implementing `StreamingProvider` against a provider you are authorised to use, or installing a compatible declarative integration. Doing so requires no changes to the home, details or player screens; the rules are in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
 ## Credits
 

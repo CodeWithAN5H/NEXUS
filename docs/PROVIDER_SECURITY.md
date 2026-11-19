@@ -112,8 +112,8 @@ redirect to a different host drops `Authorization`/`X-Api-Key` (§3.4).
 - Diagnostics are opt-in, in-memory, per provider, and can be cleared; they are
   shown with the same redaction, and exporting them is a user action with a
   warning.
-- `FLAG_SECURE` on Android for the secret-entry screen is a planned, small
-  addition (§5, S3) — not implemented today.
+- `FLAG_SECURE` is applied on Android while a screen can show a credential field
+  (§5, S3); no screenshot claim is made for other platforms.
 - Config values are never sent anywhere except the provider's own requests, and
   never to an origin outside the allowlist.
 
@@ -215,9 +215,9 @@ exceed its declared resource envelope, and cannot take the app down with it.
 | S6 | Media URL validator (scheme + `mediaHosts` + length) before the player | 2.3 |
 | S7 | Concurrency cap + per-provider pacing + `Retry-After` clamping | 2.2b |
 | S8 | Manifest re-validation on load; failure disables only that provider | 2.2c — implemented |
-| S9 | Diagnostics buffer, opt-in, cleared on remove, redacted on export | 2.2d |
-| S10 | Review screen showing id, origin, capabilities, hosts before install | 2.2d |
-| S11 | `dispose()` on every path (disable, remove; app background in 2.2d) | 2.2c — implemented for disable and remove |
+| S9 | Diagnostics buffer, opt-in, cleared on remove, redacted on export | 2.2d — implemented |
+| S10 | Review screen showing id, origin, capabilities, hosts before install | 2.2c/2.2d — partial: identity, attribution, contract, capabilities and validation errors; requested hosts are not listed yet |
+| S11 | `dispose()` on every path (disable, remove; app background) | 2.2c/2.2d — implemented for disable and remove; no app-background hook yet |
 | S12 | Security regression tests T-B22…T-B24, T-B34…T-B37, T-B45, T-P06, T-P07 | 2.2b–2.2c |
 
 Implemented in 2.2b and covered by `test/providers/manifest_adapter_test.dart`:
@@ -237,9 +237,11 @@ and through `ManifestProviderFactory` before a provider is built; a bad row
 produces a typed failure and disables only itself) and **S11** for disable and
 removal (the registry controller disposes every instance it drops).
 
-Still to come: **S9** (diagnostics buffer), **S10** (the full review-screen field
-set is present in 2.2c, the remainder is 2.2d) and **S11** for app-background
-disposal — 2.2d.
+Implemented in 2.2d: **S9** — diagnostics are opt-in per source, kept only in
+memory (20 entries), cleared when switched off and on removal, and both the sheet
+and its clipboard export pass every message through the redactor; no response
+body or header value is collected. Still to come: the requested-host lines in the
+review card (S10) and app-background disposal (S11).
 
 Honest limits that remain true of the implemented adapter:
 

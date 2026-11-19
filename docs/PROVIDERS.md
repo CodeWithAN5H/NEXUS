@@ -471,10 +471,10 @@ accepted: [PROVIDER_SECURITY.md](PROVIDER_SECURITY.md).
 | Configuration | None | ✅ Declared fields, evaluation to `notRequired`/`incomplete`/`configured`; generated form with validation, secrets in the platform keystore (2.2c) | Rejected-credential recovery UI refinement (2.2d) |
 | Compatibility | One availability enum | ✅ Three axes + one derived state (§2) | Per-state UI actions (2.2d) |
 | Lifecycle | Enable/disable flag | ✅ `probe()`, idempotent `dispose()`, persisted enablement; install/configure/remove with `dispose()` on disable or removal (2.2c) | App-background disposal (2.2d) |
-| Ordering | First enabled match | ✅ All matches, stored priority, per-title preference | Reorder control (2.2d) |
+| Ordering | First enabled match | ✅ All matches, stored priority, per-title preference; user-added sources can be reordered from Sources (2.2d) | — |
 | Errors | `ProviderException(message)` | ✅ Sealed `ProviderFailure` taxonomy (§8) | — |
 | Status | Synchronous getter | ✅ `probe()` → timestamped snapshot | — |
-| User-added providers | Not possible | ✅ Tier B: install from a pasted manifest, review identity/capabilities/errors, configure, remove; `ManifestStreamingProvider` interprets the validated document (2.2b, 2.2c) | URL import and ordering (2.2d) |
+| User-added providers | Not possible | ✅ Tier B: install from a pasted manifest, review identity/capabilities/errors, configure, order, remove; `ManifestStreamingProvider` interprets the validated document (2.2b–2.2d) | URL import and requested-host review |
 | Manifest validation | None | ✅ Offline pipeline: parse → schema → templates → paths → semantics → compatibility, all errors reported ([PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) §9); stored copies are revalidated at every start and before every provider is built (2.2c) | — |
 | Network egress | No provider-level allowlist | ✅ Manifest adapter: HTTPS only, allowlist on parsed URIs, manual redirects re-checked per hop, decoded-byte cap, timeouts, pacing, one idempotent retry | Nothing further for manifest providers |
 | Provider tests | Contract honesty | ✅ 145 provider tests: contract, axes, resolution, metadata, migration, manifest validation, adapter and security | Sources suites ([PROVIDER_TESTS.md](PROVIDER_TESTS.md)) |

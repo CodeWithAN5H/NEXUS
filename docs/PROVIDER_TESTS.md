@@ -1,10 +1,10 @@
 # NEXUS — Provider Contract Test Matrix
 
-**Status:** the built-in, resolution, persistence, **manifest** and **lifecycle**
-layers are **implemented and executed** as of milestone 2.2c (T-A, T-M, T-B, T-R,
-T-P, and the install/configure/remove T-S flows). Remaining specifications: the
-full derived-state action set, priority ordering and the diagnostics export
-(2.2d). This matrix defines what "the provider
+**Status:** the built-in, resolution, persistence, **manifest**, **lifecycle**
+and **Sources** layers are **implemented and executed** as of milestone 2.2d (T-A,
+T-M, T-B, T-R, T-P, and the T-S state, ordering, diagnostics and recovery flows).
+Remaining gaps against the matrix: requested-host lines in the import review and
+app-background disposal. This matrix defines what "the provider
 platform works" means, so implementation and verification cannot drift.
 Contracts: [PROVIDERS.md](PROVIDERS.md) §3–§8,
 [PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md),
@@ -38,9 +38,9 @@ Rules applied to every test in this document:
    waits 15 real seconds.
 
 Baseline: 79 tests from v0.1.0-alpha (models, formatting, database, widgets,
-provider contract); all still pass. The suite is **258 tests** after milestone
-2.2c (224 after 2.2b, plus 34 for installation, configuration, secrets,
-lifecycle, registry recreation and the Sources/import/configure/remove UI). The first provider milestone (2.1a–2.2a) added:
+provider contract); all still pass. The suite is **299 tests** after milestone
+2.2d (258 after 2.2c, plus 41 for the state/action policy, ordering, diagnostics,
+redaction and the expanded Sources UI). The first provider milestone (2.1a–2.2a) added:
 
 | Layer | File | Matrix IDs covered |
 |---|---|---|

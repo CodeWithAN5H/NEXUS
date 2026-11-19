@@ -2,6 +2,53 @@
 
 All notable changes to NEXUS are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — Sources surface, states and diagnostics (milestone 2.2d)
+
+The Sources screen is now the complete management surface: every derived state
+leads with the one action that can change it, user-added sources can be reordered,
+and opt-in redacted diagnostics explain failures. No schema migration, player
+change or unrelated screen change; nothing was released.
+
+### Added
+
+- **One action per state** (`provider_source_actions.dart`): *Ready* → Test
+  playback, *Setup required* / *Sign-in rejected* → Configure, *Temporarily
+  unavailable* → Retry, *Off* → Enable, *Incompatible* → Remove (built-ins are
+  inspect-only). Configure/Details/Remove stay available where they can work, and
+  no action that cannot succeed is shown. While a probe is still running the card
+  offers inspection only.
+- **Priority ordering**: up/down controls on each user-added source, persisted
+  through one transaction that rewrites a complete, duplicate-free order with
+  built-in rows first. Reordering never changes an origin, enablement or per-title
+  preference, and the resolver continues to follow priority with preference first.
+- `ProviderManagementService`: serialises reorder and enable/disable mutations so a
+  quick double-tap cannot read stale priorities or interleave two writes.
+- **Opt-in diagnostics** per source: in-memory, capped at 20 entries, cleared when
+  turned off, cleared on removal, never persisted or uploaded. *Run check* probes
+  the source and records the availability or typed failure category (network,
+  timeout, upstream, authentication, configuration, compatibility, manifest).
+- **Redaction** for every diagnostic row and export: URL query strings and
+  fragments, bearer tokens, header values by name, long opaque tokens, control
+  characters, length cap, plus the existing `ProviderRedaction.scrub`. No response
+  body or header value is ever collected.
+- **Copy diagnostics** with an explicit confirmation dialog — the only export path;
+  nothing is uploaded and the clipboard is the only destination.
+- A details sheet showing identity, attribution, the three axes, the last observed
+  timestamp, invalid-manifest paths/codes, and the diagnostics history.
+- 41 hermetic tests: every derived state and its actions, precedence, reorder +
+  restart + resolver + preference + concurrent moves, redaction and export,
+  opt-in/cap/clear/forget, and the Sources UI (empty, states, reorder, diagnostics,
+  recovery).
+
+### Limitations
+
+- Manifest import remains paste-only, and the review card does not yet list the
+  requested origin hosts (S10 stays partial).
+- Diagnostics are in-memory only, so closing the app discards them; there is no
+  file export and no app-background disposal hook yet (S11 remainder).
+- Redaction is pattern-based defence in depth; the primary protection remains that
+  provider failures never carry credentials and no bodies are collected.
+
 ## [Unreleased] — provider lifecycle and configuration (milestone 2.2c)
 
 User-added declarative providers are now installable, configurable, enablable and

@@ -13,6 +13,7 @@ import '../../integrations/providers/provider_state.dart';
 import '../../integrations/streaming/manifest/manifest_streaming_provider.dart';
 import '../../integrations/streaming/streaming_provider.dart';
 import '../services/provider_lifecycle_service.dart';
+import '../services/provider_management_service.dart';
 import '../repositories/provider_secret_store.dart';
 import '../database/nexus_database.dart';
 import '../models/app_settings.dart';
@@ -106,6 +107,16 @@ final Provider<ProviderLifecycleService> providerLifecycleServiceProvider =
               in buildStreamingProviderRegistry().all)
             provider.id,
         },
+      );
+    });
+
+/// Priority and enablement mutations, serialised so a reorder cannot interleave
+/// with another write.
+final Provider<ProviderManagementService> providerManagementServiceProvider =
+    Provider<ProviderManagementService>((Ref ref) {
+      return ProviderManagementService(
+        ref.watch(providerStoreProvider),
+        ref.watch(providerLifecycleServiceProvider),
       );
     });
 

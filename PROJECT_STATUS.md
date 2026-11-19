@@ -1,8 +1,8 @@
 # NEXUS — Project Status
 
 **Last updated:** 2026-11-19
-**Milestone:** v0.2.0-alpha.1 shipped; **milestone 2.2c (provider lifecycle and configuration) implemented** on `main` and not yet released
-**Latest change:** declarative providers are installable, configurable and removable from Settings → Sources, with credentials in the platform keystore and installed manifests revalidated into the existing registry — 34 new hermetic tests, no schema migration (§13)
+**Milestone:** v0.2.0-alpha.1 shipped; **milestone 2.2d (Sources surface, states and diagnostics) implemented** on `main` and not yet released
+**Latest change:** every derived provider state now leads with the action that can change it, user-added sources can be reordered, and opt-in redacted diagnostics explain failures — 41 new hermetic tests, no schema migration (§14)
 **Source of truth:** https://github.com/CodeWithAN5H/NEXUS (branch `main`)
 **Application id:** `app.nexus` — confirmed permanent 2026-11-17
 
@@ -139,7 +139,7 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 
 ## 6. Next actions
 
-**Immediate (v0.2.0-alpha)** — the sequence, dependencies and per-milestone completion criteria are in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). Milestones **2.1a, 2.1b, 2.2a, 2.1c, 2.2b and 2.2c are complete** (§11–§13); the next code to write is **2.2d** (the full Sources state/action surface, ordering and diagnostics).
+**Immediate (v0.2.0-alpha)** — the sequence, dependencies and per-milestone completion criteria are in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). Milestones **2.1a, 2.1b, 2.2a, 2.1c, 2.2b, 2.2c and 2.2d are complete** (§11–§14). The next code is **2.3a**, which is blocked on decision D1 (the owner's authorised provider); nothing else in v0.2 is waiting on code.
 
 0. Install the v0.2.0-alpha.1 APK on a real Android device; verify launch, rails, search, details, library persistence, the migrated database and playback of the test streams. Record results here. (Still blocked: no device — decision D6.)
 1. ~~**2.1a** contract, descriptor envelope, three axes, `probe()`/`dispose()`, sealed `ProviderFailure`.~~ ✅ §11
@@ -148,6 +148,7 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 4. ~~**2.1c** collect-all resolution, priority, per-title preference.~~ ✅ §11 — release waiting on signing
 5. ~~**2.2b** manifest validator and interpreter ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md)).~~ ✅ §12
    ~~**2.2c** lifecycle and configuration.~~ ✅ §13 — install, generated configuration, keystore secrets, startup revalidation, enable/disable, removal and the Sources workflows that exercise them.
+   ~~**2.2d** Sources states, priority ordering and diagnostics.~~ ✅ §14 — one action per state, serialised reordering, opt-in redacted diagnostics with a confirmed clipboard export.
 6. **2.3a** register the owner's authorised provider; **2.3b** real episode lists and provider subtitles (blocked on decision D1).
 7. **2.4a** Explore pagination; **2.4b** AniList `streamingEpisodes` and air dates merged into the Episodes tab.
 8. **2.5a** Windows build verification (blocked on a Windows host); **2.5b** launcher icon and splash.
@@ -470,12 +471,10 @@ are synthetic, which is why the suite is deterministic.
 
 ### Next milestone
 
-**2.2d — Sources states, ordering and diagnostics.** 2.2c already ships the
-install/configure/remove workflows, an import review card with validation errors,
-and per-source diagnostics for an invalid stored manifest; 2.2d owns the full
-six-state action set, priority ordering and the opt-in diagnostics buffer/export.
-Next release is an owner action; nothing was tagged or published for this
-milestone.
+**2.3a — the owner's authorised provider.** Blocked on decision D1; everything
+else planned for v0.2 is implemented. Remaining non-code work: install the
+`v0.2.0-alpha.1` APK on a device (D6) and the Windows verification (2.5a). Next
+release is an owner action; nothing was tagged or published for this milestone.
 
 ---
 
@@ -518,3 +517,46 @@ migration, application id or signing change; nothing was released.
 | URL manifest import | ❌ | Deliberately later work; paste is the supported mechanism |
 | Real provider interoperability | ❌ | No authorised provider (decision D1); fixtures are synthetic |
 | Duplicate JSON keys, DNS rebinding | ⚠️ | Unchanged from 2.2b and documented in PROVIDER_MANIFEST.md §9 / PROVIDER_SECURITY.md |
+
+---
+
+## 14. Milestone 2.2d — Sources surface, states and diagnostics (implemented 2026-11-19)
+
+Completes the management surface: every derived state carries the action that can
+change it, user-added sources can be ordered, and failures are explicable without
+exposing a credential. No schema migration, player change or unrelated screen
+change; nothing was released.
+
+### What shipped
+
+| Area | Result |
+|---|---|
+| State actions | `ProviderSourceActions` maps the existing presentation state to one primary action — Test playback / Configure / Retry / Enable / Remove — with Details and Configure where they can work; while a probe runs the card offers inspection only; built-ins are never removable |
+| Ordering | Up/down controls per user-added source; one transaction rewrites a complete order with built-in rows first, so priorities stay unique; origins, enablement and per-title preferences are untouched; the resolver still applies preference ahead of priority |
+| Concurrency | `ProviderManagementService` serialises reorder and enable/disable through one queue, reading fresh state per operation |
+| Diagnostics | Opt-in per source, in-memory, capped at 20, cleared when switched off and on removal; *Run check* records availability or a typed failure category (network / timeout / upstream / authentication / configuration / compatibility / manifest) with timestamps |
+| Redaction | URL query strings and fragments, bearer tokens, header values by name, long opaque tokens, control characters and length caps, plus `ProviderRedaction.scrub`; no response body or header value is ever collected |
+| Export | Copy-to-clipboard only, behind an explicit confirmation that states what is and is not included; nothing is uploaded, logged or written to a file |
+| UI | Details sheet with identity, attribution, the three axes, last observed time, invalid-manifest `path → problem` rows, opt-in switch, history, Clear, Run check and Copy; Sources cards keep the existing tokens and layout |
+
+### Verification
+
+| Check | Command | Result |
+|---|---|---|
+| Formatting | `dart format --output=none --set-exit-if-changed lib test` | ✅ clean |
+| Static analysis | `flutter analyze` | ✅ **No issues found!** |
+| Tests | `flutter test` | ✅ **299/299 passed** (258 before this milestone + 41 new) |
+| State coverage | `source_actions_test.dart` | ✅ all six states, loading, built-in vs user, no impossible actions |
+| Ordering | `provider_priority_test.dart` | ✅ reorder, restart, unique priorities, resolver order, preference first, disabled source, concurrent moves, unknown/built-in refusal |
+| Diagnostics | `provider_diagnostics_test.dart` | ✅ opt-in gate, cap, clear/forget, failure categories, URL/token/header/secret redaction, empty export |
+| UI | `provider_sources_ui_test.dart` | ✅ empty state, invalid review, install, unavailable + Retry, disabled + Enable, needsSetup, reorder, diagnostics opt-in, removal, secret never shown |
+
+### Not verified (and why)
+
+| Item | Status | Reason |
+|---|---|---|
+| Runtime device behaviour (clipboard, sheet, gestures) | ❌ | No Android device or emulator here (decision D6) |
+| Requested origin hosts in the import review | ❌ | Not implemented; recorded as the remaining S10 gap |
+| App-background disposal | ❌ | Not implemented; recorded as the remaining S11 gap |
+| URL manifest import | ❌ | Deliberately later work; paste is the supported mechanism |
+| Real provider interoperability | ❌ | No authorised provider (decision D1); fixtures are synthetic |

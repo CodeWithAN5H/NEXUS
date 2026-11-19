@@ -23,7 +23,7 @@ Everything listed here runs in the app and is backed by real code and local stor
 | Watch history | ✅ | Per-episode positions, resume, delete, clear all |
 | Local database | ✅ | SQLite via Drift, versioned schema, data preserved across restarts (tested) |
 | Metadata | ✅ | AniList GraphQL (trending, seasonal, search, filters, details, relations) |
-| Provider architecture | 🟡 platform + manifest interpreter | Two provider kinds, separate registries, three state axes with one derived state, `probe()`/`dispose()`, sealed `ProviderFailure`, all-match resolution with priority and per-title preference, additive schema v2, and a validator/interpreter for declarative manifests that cannot execute code or reach an undeclared host — [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md). Installing a manifest and the Sources management UI are 2.2c/2.2d |
+| Provider architecture | 🟡 platform + installable manifests | Two provider kinds, separate registries, three state axes with one derived state, `probe()`/`dispose()`, sealed `ProviderFailure`, all-match resolution with priority and per-title preference, additive schema v2, and a validator/interpreter for declarative manifests that cannot execute code or reach an undeclared host. Settings → Sources can install, configure, enable, test and remove a pasted manifest; credentials live in the platform keystore and a stored manifest is revalidated at every start — [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md), [docs/PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md). Ordering, the full state/action surface and diagnostics export remain 2.2d |
 | Video player | ✅ | media_kit, custom controls, quality/audio/subtitle menus, speed, resume, auto-next, keyboard shortcuts |
 | Playback test library | ✅ | Two public test streams (Apple, Mux) to verify playback end to end |
 | Settings | ✅ | Appearance, playback, subtitles, audio, sources, AniList status, about/licences |
@@ -94,7 +94,7 @@ flutter run                     # add -d windows on a Windows host
 ```bash
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze                 # must report: No issues found!
-flutter test                    # 224 tests
+flutter test                    # 258 tests
 ```
 
 ### Build an APK locally (unsigned preview)

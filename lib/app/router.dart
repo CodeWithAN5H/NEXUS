@@ -12,6 +12,8 @@ import '../features/library/library_screen.dart';
 import '../features/player/playback_request.dart';
 import '../features/player/player_screen.dart';
 import '../features/profile/profile_screen.dart';
+import '../features/settings/provider_config_screen.dart';
+import '../features/settings/provider_import_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/settings/sources_screen.dart';
 import 'app_shell.dart';
@@ -96,6 +98,20 @@ final GoRouter appRouter = GoRouter(
       path: '/sources',
       builder: (BuildContext context, GoRouterState state) =>
           const SourcesScreen(),
+      routes: <RouteBase>[
+        GoRoute(
+          path: 'import',
+          builder: (BuildContext context, GoRouterState state) =>
+              const ProviderImportScreen(),
+        ),
+        GoRoute(
+          path: ':providerId/configure',
+          builder: (BuildContext context, GoRouterState state) =>
+              ProviderConfigScreen(
+                providerId: state.pathParameters['providerId'] ?? '',
+              ),
+        ),
+      ],
     ),
     GoRoute(
       path: '/watch',

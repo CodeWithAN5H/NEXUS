@@ -2,6 +2,57 @@
 
 All notable changes to NEXUS are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — provider lifecycle and configuration (milestone 2.2c)
+
+User-added declarative providers are now installable, configurable, enablable and
+removable from Settings → Sources, with credentials kept in the platform
+keystore. No schema migration, application id or signing change, and nothing was
+released.
+
+### Added
+
+- `ProviderSecretStore` + `FlutterSecureStorageSecretStore`: `type: secret` fields
+  live under `provider.<id>.<key>` in `flutter_secure_storage`; non-secret values
+  stay in `provider_entries.config_json`. An unreadable keystore is treated as
+  "absent" (setup required) — never a crash and never an error that contains a
+  credential.
+- `ProviderLifecycleService`: preview → install (revalidate, refuse duplicates and
+  built-in ids, write secrets then one transaction, roll back both on failure),
+  `updateConfiguration` (replace, keep or clear a secret; revert on failure),
+  `remove` (rows, manifest, per-title choices and credentials; library, progress
+  and preferences untouched) and `setEnabled`.
+- `ManifestConfigValidator`: every documented field type and rule — required,
+  `url` (https, no embedded credentials), `choice`, `bool`, `text`, `secret`,
+  `pattern`, `maxLength` — shared by the form and the service so they cannot
+  disagree.
+- Generated configuration form (`ProviderConfigForm`) used for installation and
+  later editing alike; a saved secret renders as "Saved securely" and is never
+  read back into the UI.
+- Settings → Sources: **Add source** (paste → review identity, attribution,
+  capabilities and every validation error → configure → install), the installed
+  list with enable/disable, configure, remove-with-confirmation, diagnostics for
+  an invalid stored manifest, and the built-in test source still labelled
+  test-only.
+- Registry integration: `UserStreamingProvidersController` adds installed,
+  enabled, compatible and configured providers to the existing
+  `StreamingProviderRegistry`, reuses unchanged instances and **disposes** every
+  instance it drops.
+- Android `FLAG_SECURE` through a small `app.nexus/secure_screen` method channel
+  while a credential field can be on screen.
+- 34 hermetic tests (fake keystore, scripted transport, in-memory database):
+  install, refusal and rollback; every config type; secret absence and replacement;
+  restart, corrupt and incompatible stored manifests; disable/re-enable; removal
+  and disposal; and the Sources, import, configuration and removal widget flows.
+
+### Limitations
+
+- Manifest import is paste-only; fetching from a URL is still later work.
+- Windows keystore support is unverified (no Windows host), and `FLAG_SECURE` is
+  Android-only, so no screenshot claim is made for other platforms.
+- Duplicate JSON keys remain last-wins and DNS rebinding is unchanged.
+- Reordering providers, the full derived-state action set and diagnostics export
+  remain milestone 2.2d.
+
 ## [Unreleased] — declarative provider manifests (milestone 2.2b)
 
 One generic adapter can now interpret a validated JSON manifest, so a supported

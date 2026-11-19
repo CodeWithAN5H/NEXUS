@@ -1,8 +1,8 @@
 # NEXUS — Project Status
 
 **Last updated:** 2026-11-19
-**Milestone:** v0.2.0-alpha.1 shipped; **milestone 2.2b (declarative provider manifests) implemented** on `main` and not yet released
-**Latest change:** an offline manifest validator, a bounded declarative interpreter, a hardened HTTP layer and a `ManifestStreamingProvider` that is indistinguishable from a built-in adapter at the resolver — 80 new hermetic tests, no UI or schema change (§12)
+**Milestone:** v0.2.0-alpha.1 shipped; **milestone 2.2c (provider lifecycle and configuration) implemented** on `main` and not yet released
+**Latest change:** declarative providers are installable, configurable and removable from Settings → Sources, with credentials in the platform keystore and installed manifests revalidated into the existing registry — 34 new hermetic tests, no schema migration (§13)
 **Source of truth:** https://github.com/CodeWithAN5H/NEXUS (branch `main`)
 **Application id:** `app.nexus` — confirmed permanent 2026-11-17
 
@@ -139,7 +139,7 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 
 ## 6. Next actions
 
-**Immediate (v0.2.0-alpha)** — the sequence, dependencies and per-milestone completion criteria are in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). Milestones **2.1a, 2.1b, 2.2a, 2.1c and 2.2b are complete** (§11, §12); the next code to write is **2.2c** (lifecycle and configuration).
+**Immediate (v0.2.0-alpha)** — the sequence, dependencies and per-milestone completion criteria are in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). Milestones **2.1a, 2.1b, 2.2a, 2.1c, 2.2b and 2.2c are complete** (§11–§13); the next code to write is **2.2d** (the full Sources state/action surface, ordering and diagnostics).
 
 0. Install the v0.2.0-alpha.1 APK on a real Android device; verify launch, rails, search, details, library persistence, the migrated database and playback of the test streams. Record results here. (Still blocked: no device — decision D6.)
 1. ~~**2.1a** contract, descriptor envelope, three axes, `probe()`/`dispose()`, sealed `ProviderFailure`.~~ ✅ §11
@@ -147,7 +147,7 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 3. ~~**2.2a** provider store + additive schema v2 ([DATABASE.md](DATABASE.md) §6).~~ ✅ §11
 4. ~~**2.1c** collect-all resolution, priority, per-title preference.~~ ✅ §11 — release waiting on signing
 5. ~~**2.2b** manifest validator and interpreter ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md)).~~ ✅ §12
-   **2.2c** lifecycle and configuration; **2.2d** Sources states, import review and diagnostics.
+   ~~**2.2c** lifecycle and configuration.~~ ✅ §13 — install, generated configuration, keystore secrets, startup revalidation, enable/disable, removal and the Sources workflows that exercise them.
 6. **2.3a** register the owner's authorised provider; **2.3b** real episode lists and provider subtitles (blocked on decision D1).
 7. **2.4a** Explore pagination; **2.4b** AniList `streamingEpisodes` and air dates merged into the Episodes tab.
 8. **2.5a** Windows build verification (blocked on a Windows host); **2.5b** launcher icon and splash.
@@ -470,6 +470,51 @@ are synthetic, which is why the suite is deterministic.
 
 ### Next milestone
 
-**2.2c — provider lifecycle and configuration**, then **2.2d** (Sources states,
-import review, diagnostics). Next release is an owner action; nothing was tagged
-or published for this milestone.
+**2.2d — Sources states, ordering and diagnostics.** 2.2c already ships the
+install/configure/remove workflows, an import review card with validation errors,
+and per-source diagnostics for an invalid stored manifest; 2.2d owns the full
+six-state action set, priority ordering and the opt-in diagnostics buffer/export.
+Next release is an owner action; nothing was tagged or published for this
+milestone.
+
+---
+
+## 13. Milestone 2.2c — provider lifecycle and configuration (implemented 2026-11-19)
+
+Makes the declarative tier usable end to end: a pasted manifest can be reviewed,
+installed, configured, enabled, disabled and removed from Settings → Sources, and
+installed providers join the existing registry after revalidation. No schema
+migration, application id or signing change; nothing was released.
+
+### What shipped
+
+| Area | Result |
+|---|---|
+| Installation | `ProviderLifecycleService.preview` validates without writing; `install` revalidates, refuses duplicates and built-in ids, validates configuration, writes secrets, then writes the row and manifest in one transaction; every failure rolls back both stores |
+| Configuration | `ManifestConfigValidator` covers `text`, `url`, `secret`, `choice`, `bool`, required/optional, `pattern` and `maxLength`; one `ProviderConfigForm` serves installation and editing; a saved secret is shown as present and never read back |
+| Secrets | `ProviderSecretStore`/`FlutterSecureStorageSecretStore` under `provider.<id>.<key>`; ordinary config stays in `provider_entries.config_json`; an inaccessible keystore reads as absent, not as a crash or a leaked error; removal deletes the credential; Android `FLAG_SECURE` while a credential field can be shown |
+| Startup | Installed manifests are read from `provider_manifests`, validated again and reported as `InstalledProvider`; every provider is built through `ManifestProviderFactory`; an invalid or incompatible row disables only itself |
+| Registry | `UserStreamingProvidersController` adds enabled/compatible/configured providers to the existing `StreamingProviderRegistry`, reuses unchanged instances, disposes every instance it drops and never registers a duplicate |
+| Sources UI | Add source (paste → review → configure → install), installed cards with state chip, enable toggle, Configure, Remove with confirmation, diagnostics for an invalid stored manifest, and the built-in sample source still labelled *test only* |
+| Routes | `/sources/import` and `/sources/:providerId/configure`, outside the shell, reusing existing tokens and components |
+
+### Verification
+
+| Check | Command | Result |
+|---|---|---|
+| Formatting | `dart format --output=none --set-exit-if-changed lib test` | ✅ clean |
+| Static analysis | `flutter analyze` | ✅ **No issues found!** |
+| Tests | `flutter test` | ✅ **258/258 passed** (224 before this milestone + 34 new) |
+| Secret containment | lifecycle tests | ✅ no configured secret appears in a row, a manifest, a state value or an error message; the fake keystore holds it |
+| User data preservation | removal test | ✅ library row and playback position unchanged after removing the provider |
+| UI flows | widget tests | ✅ empty Sources, invalid review, valid review + install, invalid stored manifest, removal confirmation, configuration editing |
+
+### Not verified (and why)
+
+| Item | Status | Reason |
+|---|---|---|
+| Runtime device behaviour (keystore, `FLAG_SECURE`) | ❌ | No Android device or emulator here (decision D6) |
+| Windows keystore | ❌ | No Windows host (decision D5, 2.5a) |
+| URL manifest import | ❌ | Deliberately later work; paste is the supported mechanism |
+| Real provider interoperability | ❌ | No authorised provider (decision D1); fixtures are synthetic |
+| Duplicate JSON keys, DNS rebinding | ⚠️ | Unchanged from 2.2b and documented in PROVIDER_MANIFEST.md §9 / PROVIDER_SECURITY.md |

@@ -173,6 +173,87 @@ class ProviderStore {
     );
   }
 
+  /// Persists a newly installed user provider: its row and its manifest in one
+  /// transaction, so a failure cannot leave a provider without a manifest (or a
+  /// manifest without a provider).
+  ///
+  /// The caller writes secrets first; `ProviderLifecycleService` removes them if
+  /// this throws.
+  Future<void> installUserProvider({
+    required ProviderRecord record,
+    required String manifestJson,
+    String? sourceUrl,
+  }) async {
+    if (utf8.encode(manifestJson).length > maxManifestBytes) {
+      throw const StorageFailure(
+        'That manifest is larger than the 512 KiB limit.',
+        cause: null,
+      );
+    }
+    try {
+      await _db.transaction(() async {
+        await _db
+            .into(_db.providerManifests)
+            .insertOnConflictUpdate(
+              ProviderManifestsCompanion.insert(
+                providerId: record.providerId,
+                manifestJson: manifestJson,
+                sourceUrl: Value<String?>(sourceUrl),
+                installedAt: Value<DateTime>(record.installedAt),
+              ),
+            );
+        await _db
+            .into(_db.providerEntries)
+            .insertOnConflictUpdate(
+              ProviderEntriesCompanion.insert(
+                providerId: record.providerId,
+                origin: Value<String>(record.origin.name),
+                manifestVersion: Value<String?>(record.manifestVersion),
+                contractVersion: Value<int?>(record.contractVersion),
+                enabled: Value<bool>(record.enabled),
+                priority: Value<int>(record.priority),
+                configJson: Value<String>(jsonEncode(record.config)),
+                installedAt: Value<DateTime>(record.installedAt),
+              ),
+            );
+      });
+    } catch (error) {
+      if (error is StorageFailure) rethrow;
+      throw StorageFailure('Could not install that source.', cause: error);
+    }
+  }
+
+  /// Replaces the non-secret configuration of one provider.
+  Future<void> setConfig(String providerId, Map<String, String> config) {
+    return _write(
+      () =>
+          (_db.update(
+            _db.providerEntries,
+          )..where((table) => table.providerId.equals(providerId))).write(
+            ProviderEntriesCompanion(
+              configJson: Value<String>(jsonEncode(config)),
+            ),
+          ),
+      failure: 'Could not save that configuration.',
+    );
+  }
+
+  /// Next free priority, so a new provider runs after existing ones.
+  Future<int> nextPriority() async {
+    try {
+      final List<ProviderEntryRow> rows = await _db
+          .select(_db.providerEntries)
+          .get();
+      if (rows.isEmpty) return 0;
+      return rows
+              .map((ProviderEntryRow row) => row.priority)
+              .reduce((int a, int b) => a > b ? a : b) +
+          1;
+    } catch (error) {
+      throw StorageFailure('Could not read the source order.', cause: error);
+    }
+  }
+
   /// Deletes a provider's own rows — entry, per-title choices and manifest.
   ///
   /// Library entries, history and playback positions are deliberately untouched:

@@ -164,7 +164,10 @@ class ProviderConfigField {
     this.required = false,
     this.hint,
     this.defaultValue,
+    this.placeholder,
     this.choices = const <String>[],
+    this.pattern,
+    this.maxLength = 4096,
   });
 
   final String key;
@@ -173,7 +176,14 @@ class ProviderConfigField {
   final bool required;
   final String? hint;
   final String? defaultValue;
+  final String? placeholder;
   final List<String> choices;
+
+  /// Optional regular expression the whole value must match.
+  final String? pattern;
+
+  /// Upper bound on the stored value's length.
+  final int maxLength;
 }
 
 /// Everything both provider kinds declare about themselves.

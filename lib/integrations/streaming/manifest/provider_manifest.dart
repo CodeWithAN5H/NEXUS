@@ -89,7 +89,10 @@ class ManifestConfigField {
     required: required,
     hint: hint,
     defaultValue: defaultValue,
+    placeholder: placeholder,
     choices: choices,
+    pattern: pattern,
+    maxLength: maxLength,
   );
 }
 
@@ -338,4 +341,54 @@ class ProviderManifest {
     host: uri.host,
     port: uri.hasPort ? uri.port : null,
   );
+}
+
+/// [ProviderDescriptor] view of a manifest, without constructing a provider.
+///
+/// Sources needs the identity, capabilities and declared fields of a disabled or
+/// unconfigured provider, and building a real adapter just to read them would
+/// open an HTTP client that then has to be disposed. This view is inert.
+class ManifestDescriptor implements ProviderDescriptor {
+  ManifestDescriptor(this.manifest);
+
+  final ProviderManifest manifest;
+
+  @override
+  String get id => manifest.id;
+
+  @override
+  String get name => manifest.name;
+
+  @override
+  String get description => manifest.description ?? 'Installed source.';
+
+  @override
+  String get version => manifest.version;
+
+  @override
+  String get attribution => manifest.attribution;
+
+  @override
+  ProviderKind get kind => ProviderKind.streaming;
+
+  @override
+  ProviderOrigin get origin => ProviderOrigin.userAdded;
+
+  @override
+  ProviderContractRange get contract => manifest.contractRange;
+
+  @override
+  Set<ProviderPlatform> get platforms => const <ProviderPlatform>{
+    ProviderPlatform.android,
+    ProviderPlatform.windows,
+    ProviderPlatform.linux,
+  };
+
+  Set<ProviderCapability> get capabilities => manifest.providerCapabilities;
+
+  @override
+  List<ProviderConfigField> get configuration => <ProviderConfigField>[
+    for (final ManifestConfigField field in manifest.config)
+      field.toProviderConfigField(),
+  ];
 }

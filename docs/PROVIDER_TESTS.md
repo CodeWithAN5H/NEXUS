@@ -1,9 +1,10 @@
 # NEXUS — Provider Contract Test Matrix
 
-**Status:** the built-in, resolution, persistence and **manifest** layers are
-**implemented and executed** as of `v0.2.0-alpha.1` (T-A, T-M, T-B, T-R, T-P).
-The Sources UI layer (T-S) and the lifecycle rows marked 2.2c are still
-specifications. This matrix defines what "the provider
+**Status:** the built-in, resolution, persistence, **manifest** and **lifecycle**
+layers are **implemented and executed** as of milestone 2.2c (T-A, T-M, T-B, T-R,
+T-P, and the install/configure/remove T-S flows). Remaining specifications: the
+full derived-state action set, priority ordering and the diagnostics export
+(2.2d). This matrix defines what "the provider
 platform works" means, so implementation and verification cannot drift.
 Contracts: [PROVIDERS.md](PROVIDERS.md) §3–§8,
 [PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md),
@@ -37,8 +38,9 @@ Rules applied to every test in this document:
    waits 15 real seconds.
 
 Baseline: 79 tests from v0.1.0-alpha (models, formatting, database, widgets,
-provider contract); all still pass. The suite is **224 tests** after milestone
-2.2b. The first provider milestone (2.1a–2.2a) added:
+provider contract); all still pass. The suite is **258 tests** after milestone
+2.2c (224 after 2.2b, plus 34 for installation, configuration, secrets,
+lifecycle, registry recreation and the Sources/import/configure/remove UI). The first provider milestone (2.1a–2.2a) added:
 
 | Layer | File | Matrix IDs covered |
 |---|---|---|

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import '../../../data/models/anime.dart';
+import '../../providers/provider_descriptor.dart';
 import '../../providers/provider_failure.dart';
 import '../../providers/title_matching.dart';
 import '../streaming_provider.dart';
@@ -55,6 +56,10 @@ class ManifestStreamingProvider extends StreamingProvider {
   /// Origin of the most recent request, used to resolve relative media URLs.
   Uri? _lastOrigin;
   bool _disposed = false;
+
+  /// True once [dispose] has run. Used by tests to prove the registry releases
+  /// instances it drops.
+  bool get isDisposed => _disposed;
 
   List<ProviderSeries> get lastAmbiguousMatch =>
       List<ProviderSeries>.unmodifiable(_lastAmbiguousMatch);
@@ -1111,6 +1116,8 @@ class ManifestProviderFactory {
             gate: gate,
           ),
           status: result.status,
+          manifest: result.manifest,
+          compatibility: result.compatibility,
         );
       case ManifestStatus.invalid:
         return ManifestProviderLoad(
@@ -1137,6 +1144,8 @@ class ManifestProviderFactory {
       case ManifestStatus.unsupportedContract:
         return ManifestProviderLoad(
           status: result.status,
+          manifest: result.manifest,
+          compatibility: result.compatibility,
           failure: ProviderManifestInvalid(
             providerId: result.manifest?.id ?? 'manifest',
             message:
@@ -1156,12 +1165,20 @@ class ManifestProviderLoad {
     this.provider,
     this.failure,
     this.errors = const <ManifestError>[],
+    this.manifest,
+    this.compatibility = ProviderCompatibility.compatible,
   });
 
   final ManifestStatus status;
   final ManifestStreamingProvider? provider;
   final ProviderFailure? failure;
   final List<ManifestError> errors;
+
+  /// The parsed document, when the format is understood — present for
+  /// [ManifestStatus.unsupportedContract] so the provider can be listed without
+  /// ever being invoked.
+  final ProviderManifest? manifest;
+  final ProviderCompatibility compatibility;
 
   bool get isUsable => provider != null;
 }

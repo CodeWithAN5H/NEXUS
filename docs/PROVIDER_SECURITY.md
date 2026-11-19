@@ -193,7 +193,7 @@ them and cannot hide your address from it."
 | R4 | A pathological user-supplied regex could stall a config form | Bounded length, user-entered, local only | Run validation off the UI isolate if it becomes a problem |
 | R5 | A provider can exhaust the user's mobile data with large media | Media size is the player's domain, outside the manifest | Data-saver/wifi-only preference is a v0.3 candidate |
 | R6 | Credentials are protected by the platform keystore, not by app crypto | The keystore is the correct boundary on Android/Windows | none needed |
-| R7 | Secrets can appear on screen if the user screenshots the entry field | Platform behaviour | `FLAG_SECURE` (S3) |
+| R7 | Secrets can appear on screen if the user screenshots the entry field | `FLAG_SECURE` is applied on Android; other platforms still rely on the user | Extend to other platforms only if the platform supports it (2.5a) |
 | R8 | A provider can stop working at any time (API change, takedown) | External dependency | Typed failures + diagnostics keep it explicable |
 
 **No claim is made that a manifest is sandboxed, audited or safe.** What is
@@ -209,15 +209,15 @@ exceed its declared resource envelope, and cannot take the app down with it.
 |---|---|---|
 | S1 | Allowlist enforced on parsed URIs, before connecting, for every request and every redirect hop | 2.2b |
 | S2 | Response byte cap counted on decoded bytes while streaming | 2.2b |
-| S3 | `FLAG_SECURE` on secret entry; keystore-backed secret store | 2.2c |
+| S3 | `FLAG_SECURE` on secret entry; keystore-backed secret store | 2.2c — implemented (Android `FLAG_SECURE`, `flutter_secure_storage`) |
 | S4 | Log redaction helper used by every provider log line | 2.2b |
 | S5 | Header-template hardening (refuse CR/LF/`:` injection, 1024-byte cap) | 2.2b |
 | S6 | Media URL validator (scheme + `mediaHosts` + length) before the player | 2.3 |
 | S7 | Concurrency cap + per-provider pacing + `Retry-After` clamping | 2.2b |
-| S8 | Manifest re-validation on load; failure disables only that provider | 2.2c |
+| S8 | Manifest re-validation on load; failure disables only that provider | 2.2c — implemented |
 | S9 | Diagnostics buffer, opt-in, cleared on remove, redacted on export | 2.2d |
 | S10 | Review screen showing id, origin, capabilities, hosts before install | 2.2d |
-| S11 | `dispose()` on every path (disable, remove, app background) | 2.2c |
+| S11 | `dispose()` on every path (disable, remove; app background in 2.2d) | 2.2c — implemented for disable and remove |
 | S12 | Security regression tests T-B22…T-B24, T-B34…T-B37, T-B45, T-P06, T-P07 | 2.2b–2.2c |
 
 Implemented in 2.2b and covered by `test/providers/manifest_adapter_test.dart`:
@@ -228,10 +228,18 @@ refuse CR/LF and values over 1024 bytes), **S6** (media URL validator: scheme,
 `mediaHosts`, length, control characters) and **S7** (4-request gate for manifest
 work, per-provider pacing, clamped `Retry-After`).
 
-Still to come: **S3** (`FLAG_SECURE`, keystore-backed secrets), **S8** (manifest
-re-validation on load), **S9** (diagnostics buffer), **S10** (review screen),
-**S11** (dispose on remove/background) — every one of them is 2.2c/2.2d, and none
-is claimed today.
+Implemented in 2.2c and covered by `test/providers/provider_lifecycle_test.dart`
+and `test/providers/provider_sources_ui_test.dart`: **S3** (a `type: secret`
+value is written to `flutter_secure_storage` under `provider.<id>.<key>`, never to
+SQLite, and `FLAG_SECURE` is applied on Android while a credential field can be
+shown), **S8** (every stored manifest goes through `ManifestValidator` on load
+and through `ManifestProviderFactory` before a provider is built; a bad row
+produces a typed failure and disables only itself) and **S11** for disable and
+removal (the registry controller disposes every instance it drops).
+
+Still to come: **S9** (diagnostics buffer), **S10** (the full review-screen field
+set is present in 2.2c, the remainder is 2.2d) and **S11** for app-background
+disposal — 2.2d.
 
 Honest limits that remain true of the implemented adapter:
 

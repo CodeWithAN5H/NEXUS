@@ -145,7 +145,8 @@ final class ProviderUpstreamError extends ProviderFailure {
     this.status,
     super.message = 'The source is unavailable right now.',
     super.cause,
-  }) : super(isRetryable: true);
+    bool retryable = true,
+  }) : super(isRetryable: retryable);
 
   /// HTTP status when there was one.
   final int? status;

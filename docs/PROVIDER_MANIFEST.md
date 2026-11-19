@@ -1,9 +1,12 @@
 # NEXUS — Provider Manifest Format (v1)
 
-**Status:** specification for v0.2.0-alpha. Nothing described here is implemented
-yet; this document and
+**Status:** **implemented** in v0.2.0-alpha.1 (milestone 2.2b) as
+`lib/integrations/streaming/manifest/`: the validator (stages 1–4), the JSON path
+reader, the template binder, the hardened HTTP layer and
+`ManifestStreamingProvider`. What remains is the install/configure/remove flow
+(2.2c) and the Sources surface (2.2d) — see §13. This document and
 [`schema/provider-manifest.v1.schema.json`](schema/provider-manifest.v1.schema.json)
-are the normative definition. [PROVIDERS.md](PROVIDERS.md) §7 explains why this
+are still the normative definition. [PROVIDERS.md](PROVIDERS.md) §7 explains why this
 tier exists at all; this file defines exactly what a manifest may say and what
 the runtime does with it.
 
@@ -378,6 +381,14 @@ sees a complete list rather than one problem at a time.
 Each error is reported as `{code, path, message}`; the UI shows `path` and
 `message`. No error message ever includes a substituted secret.
 
+**Known limitation — duplicate object keys.** `dart:convert` keeps the last of
+two identical keys and does not report the collision, so a document with a
+duplicated key is accepted with last-wins semantics rather than rejected at the
+parse stage. Validation and interpretation read the *same* decoded map, so this
+cannot create a validator/adapter disagreement (the security-relevant case); it
+only means an author cannot rely on an error for the mistake. Detecting it would
+require a second tokenizer, which this milestone deliberately did not add.
+
 ---
 
 ## 10. Versioning
@@ -413,8 +424,9 @@ Planning rules:
 | `invalid-executable-field.json` | a `script` key inside `requests.search` | `manifest.schema`, unexpected property |
 | `invalid-jsonpath-filter.json` | JSONPath with a filter expression | `manifest.path` at `/requests/search/list` |
 
-These are validated by the documentation check and, from v0.2, by
-`test/providers/manifest_schema_test.dart` (see [PROVIDER_TESTS.md](PROVIDER_TESTS.md)).
+These are validated by the documentation check and by
+`test/providers/manifest_validation_test.dart`, which asserts the documented code
+and path for each committed example (see [PROVIDER_TESTS.md](PROVIDER_TESTS.md)).
 
 ---
 
@@ -441,29 +453,42 @@ Documented so no one promises it later:
 
 ---
 
-## 13. Implementation notes (not implemented)
+## 13. Implementation notes (implemented)
 
-These are the files v0.2 will add. Nothing below exists today; the file list is
-here so the work is not improvised during implementation.
+The files exist, at the paths this document originally reserved:
 
 ```
 lib/integrations/streaming/manifest/
-├── provider_manifest.dart        // immutable model, parsed from JSON
-├── manifest_validator.dart       // stages 1–5 of §9, returns List<ManifestError>
-├── json_path_reader.dart         // §6.3 subset + depth/size guards
-├── template_binder.dart          // §6.2 substitution + header hardening
-├── manifest_http.dart            // origin allowlist, redirects, caps, pacing
-└── manifest_streaming_provider.dart  // Tier B: implements StreamingProvider
+├── provider_manifest.dart            // immutable model, built only after validation
+├── manifest_validator.dart           // stages 1–4 of §9, returns List<ManifestError>
+├── manifest_error.dart               // ManifestError + validation status
+├── json_path_reader.dart             // §6.3 subset + depth/length guards
+├── template_binder.dart              // §6.2 substitution + header hardening
+├── manifest_http.dart                // allowlist, redirects, caps, pacing, retry
+└── manifest_streaming_provider.dart  // Tier B adapter + ManifestProviderFactory
 ```
 
-Design constraints for that implementation, stated now to prevent a rewrite:
+Decisions taken during implementation:
 
-- `ManifestStreamingProvider` implements the **same** `StreamingProvider`
-  contract as Tier A; `SourceManager` cannot tell them apart.
-- The JSON Schema is bundled as an asset and used through a small, dependency-free
-  validator — adding a general JSON-Schema package is a dependency decision for
-  the owner, not an implementation detail (see [V0.2_PLAN.md](V0.2_PLAN.md) §5,
-  decision D3).
-- Host-side DNS resolution is never used for allowlist decisions; the allowlist
-  compares the URL's host string (see [PROVIDER_SECURITY.md](PROVIDER_SECURITY.md)
-  §3 for the honest limits of that).
+- **No JSON-Schema package and no bundled schema asset.** The validator is a
+  hand-written, in-repository implementation of this document and of
+  `schema/provider-manifest.v1.schema.json` (decision D3). The schema file stays
+  the reference an author reads; the committed `valid-*`/`invalid-*` examples are
+  the cross-check, and the validator has no dependency to drift.
+- **`ManifestStreamingProvider` implements the same `StreamingProvider` contract
+  as Tier A.** The resolver cannot tell them apart (proved by
+  `test/providers/manifest_adapter_test.dart`).
+- **One HTTP seam.** `ManifestTransport` is the only place a socket is opened;
+  every security decision (allowlist, redirects, caps, pacing, retries, status
+  policy) lives above it in `ManifestHttp`, so a test cannot bypass them with a
+  different transport.
+- **Media URLs are validated before return**, in the adapter: HTTPS, length,
+  control characters, and host membership in `mediaHosts` or an allowed origin.
+- **Host-side DNS resolution is never used for allowlist decisions**; the
+  allowlist compares the parsed URL's host string (see
+  [PROVIDER_SECURITY.md](PROVIDER_SECURITY.md) §3 for the honest limits of that).
+- **Not implemented here (2.2c/2.2d):** the install/review screen, generated
+  configuration form, keystore secret storage, manifest re-validation on load,
+  removal, and the Sources state actions. `ManifestProviderFactory.create`
+  returns a provider or a typed failure for one stored document, which is the
+  seam those milestones call.

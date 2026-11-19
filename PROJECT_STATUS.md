@@ -1,8 +1,8 @@
 # NEXUS — Project Status
 
 **Last updated:** 2026-11-19
-**Milestone:** v0.2.0-alpha.1 — provider platform foundation (2.1a, 2.1b, 2.2a, 2.1c) implemented, migrated and verified locally; **signed release still pending the release keystore**
-**Latest change:** two provider kinds, three axes with one derived state, sealed `ProviderFailure`, `probe()`/`dispose()`, AniList behind `MetadataProvider`, additive schema v2 proven against a committed v1 database, and a resolver that collects every matching source (§11)
+**Milestone:** v0.2.0-alpha.1 shipped; **milestone 2.2b (declarative provider manifests) implemented** on `main` and not yet released
+**Latest change:** an offline manifest validator, a bounded declarative interpreter, a hardened HTTP layer and a `ManifestStreamingProvider` that is indistinguishable from a built-in adapter at the resolver — 80 new hermetic tests, no UI or schema change (§12)
 **Source of truth:** https://github.com/CodeWithAN5H/NEXUS (branch `main`)
 **Application id:** `app.nexus` — confirmed permanent 2026-11-17
 
@@ -139,14 +139,15 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 
 ## 6. Next actions
 
-**Immediate (v0.2.0-alpha)** — the sequence, dependencies and per-milestone completion criteria are in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). Milestones **2.1a, 2.1b, 2.2a and 2.1c are complete** (§11); the next code to write is **2.2b**, gated on decision D2.
+**Immediate (v0.2.0-alpha)** — the sequence, dependencies and per-milestone completion criteria are in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). Milestones **2.1a, 2.1b, 2.2a, 2.1c and 2.2b are complete** (§11, §12); the next code to write is **2.2c** (lifecycle and configuration).
 
 0. Install the v0.2.0-alpha.1 APK on a real Android device; verify launch, rails, search, details, library persistence, the migrated database and playback of the test streams. Record results here. (Still blocked: no device — decision D6.)
 1. ~~**2.1a** contract, descriptor envelope, three axes, `probe()`/`dispose()`, sealed `ProviderFailure`.~~ ✅ §11
 2. ~~**2.1b** `MetadataProvider` split; AniList stops being a special case.~~ ✅ §11
 3. ~~**2.2a** provider store + additive schema v2 ([DATABASE.md](DATABASE.md) §6).~~ ✅ §11
 4. ~~**2.1c** collect-all resolution, priority, per-title preference.~~ ✅ §11 — release waiting on signing
-5. **2.2b** manifest validator and interpreter ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md)); **2.2c** lifecycle and configuration; **2.2d** Sources states, import review and diagnostics.
+5. ~~**2.2b** manifest validator and interpreter ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md)).~~ ✅ §12
+   **2.2c** lifecycle and configuration; **2.2d** Sources states, import review and diagnostics.
 6. **2.3a** register the owner's authorised provider; **2.3b** real episode lists and provider subtitles (blocked on decision D1).
 7. **2.4a** Explore pagination; **2.4b** AniList `streamingEpisodes` and air dates merged into the Episodes tab.
 8. **2.5a** Windows build verification (blocked on a Windows host); **2.5b** launcher icon and splash.
@@ -416,7 +417,59 @@ broken (dev tooling only).
 
 ### Next milestone
 
-**2.2b — manifest validator and interpreter**, gated on decision **D2** (is the
-declarative tier in v0.2?) and **D3** (in-repo validator). Nothing else in 2.2 has
-started. `v0.2.0-alpha.1` cannot be published until the owner supplies the release
-keystore and the four Actions secrets.
+**2.2c — provider lifecycle and configuration** (install/review flow, generated
+configuration form, keystore secrets, re-validation on load, removal). The v0.2
+release workflow is verified and working; a new release is a deliberate
+owner-triggered action, not part of every milestone.
+
+---
+
+## 12. Milestone 2.2b — manifest validator and interpreter (implemented 2026-11-19)
+
+Adds the declarative tier described in
+[docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md). No database schema, UI,
+application id or signing change; the existing provider platform, failure model
+and resolver are reused rather than duplicated.
+
+### What shipped
+
+| Area | Result |
+|---|---|
+| Validation | Parse (size, depth, JSON errors with byte offset) → schema → templates → paths → semantics → compatibility; every error collected as `{code, path, message}`, sorted by path |
+| Model | `ProviderManifest` for identity, network envelope, configuration fields, all six requests, variant/subtitle/audio mappings and the error policy |
+| Compatibility | Unknown `manifestVersion` → `requiresNewerApp`; contract outside this build → `unsupportedContract`; both keep the document for a later app |
+| Interpreter | `ManifestStreamingProvider` implements `StreamingProvider`: search, match (three fixed strategies with ambiguity left to the user), seasons, episodes (absolute and season-relative), resolve with variants, subtitles, audio and stream headers |
+| HTTP | HTTPS only, allowlist on parsed URIs, manual redirects re-checked per hop, credentials dropped across origins, byte caps while reading, timeouts, pacing, 4-request gate, one retry for idempotent GETs |
+| Failures | Every path returns a `ProviderFailure`; `probe()` never throws, even on an unexpected bug |
+| Isolation | `ManifestProviderFactory` turns one stored document into a provider or a typed failure; a bad manifest cannot affect another |
+| Media safety | A variant or subtitle URL must be HTTPS, ≤ 2048 characters, free of control characters and on `mediaHosts` or an allowed origin before the player sees it |
+
+### Verification
+
+| Check | Command | Result |
+|---|---|---|
+| Formatting | `dart format --output=none --set-exit-if-changed lib test` | ✅ clean |
+| Static analysis | `flutter analyze` | ✅ **No issues found!** |
+| Tests | `flutter test` | ✅ **224/224 passed** (144 before this milestone + 80 new) |
+| Committed examples | `manifest_validation_test.dart` | ✅ both `valid-*.json` accepted; each `invalid-*.json` refused with the documented code and path |
+| Composed behaviour | adapter tests | ✅ resolver picks a manifest provider as a source; redirects, caps, timeouts, pacing, cancellation and credential handling asserted with a scripted transport |
+
+No test opens a socket and no test uses a real streaming provider: the fixtures
+are synthetic, which is why the suite is deterministic.
+
+### Not verified (and why)
+
+| Item | Status | Reason |
+|---|---|---|
+| Installing a manifest from the app | ❌ | Install/review UI is milestone 2.2c |
+| Storing a secret in the keystore | ❌ | 2.2c; the adapter accepts a resolved configuration map and never persists it |
+| Re-validating a stored manifest on load | ❌ | 2.2c; the factory is the seam it will call |
+| Runtime device behaviour | ❌ | No Android device or emulator here (decision D6) |
+| Real provider interoperability | ❌ | No authorised provider (decision D1); all fixtures are synthetic |
+| Duplicate JSON keys | ⚠️ | `dart:convert` is last-wins and does not report the collision; documented in PROVIDER_MANIFEST.md §9 |
+
+### Next milestone
+
+**2.2c — provider lifecycle and configuration**, then **2.2d** (Sources states,
+import review, diagnostics). Next release is an owner action; nothing was tagged
+or published for this milestone.

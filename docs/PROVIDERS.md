@@ -474,11 +474,11 @@ accepted: [PROVIDER_SECURITY.md](PROVIDER_SECURITY.md).
 | Ordering | First enabled match | ✅ All matches, stored priority, per-title preference | Reorder control (2.2d) |
 | Errors | `ProviderException(message)` | ✅ Sealed `ProviderFailure` taxonomy (§8) | — |
 | Status | Synchronous getter | ✅ `probe()` → timestamped snapshot | — |
-| User-added providers | Not possible | ❌ | Tier B adapter (§7), manifest v1 (2.2b) |
-| Manifest validation | None | ❌ | Offline pipeline ([PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) §9) |
-| Network egress | No provider-level allowlist | ❌ (no manifest adapter yet) | HTTPS-only, origin-pinned, capped (2.2b) |
-| Provider tests | Contract honesty | ✅ 65 provider tests: contract, axes, resolution, metadata, migration | Manifest and Sources suites ([PROVIDER_TESTS.md](PROVIDER_TESTS.md)) |
-| Persistence | `sources.enabled` | ✅ Schema v2 tables + `ProviderStore` (§9) | Configuration and manifest writes on install (2.2b/2.2c) |
+| User-added providers | Not possible | ✅ Tier B: `ManifestStreamingProvider` interprets a validated manifest (2.2b) | Install/review screen and removal (2.2c) |
+| Manifest validation | None | ✅ Offline pipeline: parse → schema → templates → paths → semantics → compatibility, all errors reported ([PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) §9) | Re-validation of a stored copy on load (2.2c) |
+| Network egress | No provider-level allowlist | ✅ Manifest adapter: HTTPS only, allowlist on parsed URIs, manual redirects re-checked per hop, decoded-byte cap, timeouts, pacing, one idempotent retry | Nothing further for manifest providers |
+| Provider tests | Contract honesty | ✅ 145 provider tests: contract, axes, resolution, metadata, migration, manifest validation, adapter and security | Sources suites ([PROVIDER_TESTS.md](PROVIDER_TESTS.md)) |
+| Persistence | `sources.enabled` | ✅ Schema v2 tables + `ProviderStore` (§9), including manifest storage | Configuration and manifest writes on install (2.2c) |
 
 ---
 

@@ -23,7 +23,7 @@ Everything listed here runs in the app and is backed by real code and local stor
 | Watch history | ✅ | Per-episode positions, resume, delete, clear all |
 | Local database | ✅ | SQLite via Drift, versioned schema, data preserved across restarts (tested) |
 | Metadata | ✅ | AniList GraphQL (trending, seasonal, search, filters, details, relations) |
-| Provider architecture | 🟡 platform implemented | Two provider kinds, separate registries, three state axes with one derived state, `probe()`/`dispose()`, sealed `ProviderFailure`, all-match resolution with priority and per-title preference, and additive schema v2 — [docs/PROVIDERS.md](docs/PROVIDERS.md). The declarative manifest tier (2.2b–2.2d) is specified and frozen but not implemented — [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) |
+| Provider architecture | 🟡 platform + manifest interpreter | Two provider kinds, separate registries, three state axes with one derived state, `probe()`/`dispose()`, sealed `ProviderFailure`, all-match resolution with priority and per-title preference, additive schema v2, and a validator/interpreter for declarative manifests that cannot execute code or reach an undeclared host — [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md). Installing a manifest and the Sources management UI are 2.2c/2.2d |
 | Video player | ✅ | media_kit, custom controls, quality/audio/subtitle menus, speed, resume, auto-next, keyboard shortcuts |
 | Playback test library | ✅ | Two public test streams (Apple, Mux) to verify playback end to end |
 | Settings | ✅ | Appearance, playback, subtitles, audio, sources, AniList status, about/licences |
@@ -94,7 +94,7 @@ flutter run                     # add -d windows on a Windows host
 ```bash
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze                 # must report: No issues found!
-flutter test                    # 144 tests
+flutter test                    # 224 tests
 ```
 
 ### Build an APK locally (unsigned preview)

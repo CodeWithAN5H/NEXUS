@@ -2,6 +2,67 @@
 
 All notable changes to NEXUS are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — declarative provider manifests (milestone 2.2b)
+
+One generic adapter can now interpret a validated JSON manifest, so a supported
+source is described as data rather than compiled into the app. No UI, database
+schema, application id or signing configuration changed, and nothing was
+released.
+
+### Added
+
+- `ManifestValidator` (`lib/integrations/streaming/manifest/manifest_validator.dart`):
+  offline stages parse → schema → templates → paths → semantics → compatibility,
+  collecting **every** problem as `{code, path, message}` instead of stopping at
+  the first. Hard caps of 512 KiB and depth 12 are enforced before decoding.
+- `ProviderManifest`: immutable model of a validated document, including the
+  network envelope and all six request definitions. A newer `manifestVersion`
+  yields `requiresNewerApp`; a contract outside this build yields
+  `unsupportedContract`, both without pretending the document is malformed.
+- `JsonPath`: the documented read-only selector subset (`$`, `.key`, `["key"]`,
+  `[n]`, one trailing `[*]`), with filters, slices, recursion and depth over 8
+  refused at validation and at read time.
+- `TemplateBinder`: literal placeholder substitution with percent-encoding for
+  URL components, raw binding for query values that `Uri` encodes once, and
+  header hardening that refuses CR/LF, control characters and values over
+  1024 bytes.
+- `ManifestHttp`: HTTPS-only egress with the allowlist checked on parsed URIs,
+  manual redirects re-checked hop by hop (credentials dropped across origins,
+  HTTP downgrade refused), decoded-byte caps enforced while reading, per-request
+  timeouts, per-provider pacing, a 4-request gate, one retry for idempotent GETs,
+  and the documented status policy (not-found, auth, rate-limit with clamped
+  `Retry-After`, 451, 5xx).
+- `ManifestStreamingProvider`: implementation of the existing `StreamingProvider`
+  contract for search, match, seasons, episodes, resolve, subtitles and audio
+  tracks, with the documented coercions (integers, booleans, durations,
+  protocols, languages), list caps, `seasonRelative` numbering and media-URL
+  validation before anything reaches the player.
+- `ManifestProviderFactory`: validates a stored document and returns either a
+  provider or a typed failure, so one broken manifest cannot affect another.
+- `ProviderRedaction`: query-free URI descriptions, header name-only listings
+  and secret scrubbing for the few places the adapter describes a request.
+- 80 hermetic tests across `test/providers/manifest_validation_test.dart`,
+  `manifest_interpreter_test.dart` and `manifest_adapter_test.dart`, using a
+  scripted transport — no test opens a socket or depends on a real provider.
+- `ProviderUpstreamError` gained an optional `retryable` flag so a non-idempotent
+  4xx is not advertised as retryable. Existing call sites are unchanged.
+
+### Security
+
+- A manifest cannot execute code, read files, reach an undeclared host, exceed its
+  declared response/redirect/time budget, or hand an unvalidated URL to the
+  player. These are enforced in the adapter and asserted by tests; the honest
+  residual risks (DNS rebinding, duplicate JSON keys, unlocked pacing check) are
+  listed in [docs/PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md) §5.
+
+### Not included
+
+- Installing, configuring, reviewing or removing a manifest in the UI, keystore
+  secret storage and re-validation of a stored manifest on load — milestone 2.2c.
+- The Sources state actions, diagnostics and import review screen — 2.2d.
+
+---
+
 ## [0.2.0-alpha.1] — 2026-11-19 — provider platform foundation
 
 Milestones **2.1a, 2.1b, 2.2a and 2.1c** of

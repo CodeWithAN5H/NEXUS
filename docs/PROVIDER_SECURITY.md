@@ -2,7 +2,9 @@
 
 **Status:** review for v0.2.0-alpha. It documents protections that can actually be
 built in this app, and — just as important — attacks that will remain possible.
-Nothing here is implemented yet; the format is defined in
+The manifest protections marked implemented below (S1, S2, S4, S5, S6, S7) ship
+with milestone 2.2b in `lib/integrations/streaming/manifest/`; S3 and S8–S11
+belong to 2.2c/2.2d. The format is defined in
 [PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md), the platform in
 [PROVIDERS.md](PROVIDERS.md).
 
@@ -72,9 +74,10 @@ redirect to a different host drops `Authorization`/`X-Api-Key` (§3.4).
 - Effective allowlist = `net.origins` ∪ origins of configured `url` fields.
 - Comparison is on `Uri.scheme`, `Uri.host` (lowercased, punycode-normalised) and
   effective port; default ports are folded (`https://x` == `https://x:443`).
-- Only `https` is accepted at runtime. `http` is permitted in development builds
-  for `127.0.0.1`/`localhost` only, behind an assert, and can never be enabled in
-  a release build.
+- Only `https` is accepted at runtime, in every build: the implemented adapter
+  has no development exception, so a loopback HTTP base URL is refused like any
+  other downgrade. (This is stricter than the original note above proposed; a
+  local-dev exception was not added because nothing needs it yet.)
 - Wildcards exist only in `mediaHosts` (`*.example-cdn.net`), never in `origins`,
   and never match the apex domain implicitly.
 - A provider whose request URL cannot be proven inside the allowlist is refused
@@ -217,5 +220,28 @@ exceed its declared resource envelope, and cannot take the app down with it.
 | S11 | `dispose()` on every path (disable, remove, app background) | 2.2c |
 | S12 | Security regression tests T-B22…T-B24, T-B34…T-B37, T-B45, T-P06, T-P07 | 2.2b–2.2c |
 
-None of these exist yet. They are requirements for the milestones in
-[V0.2_PLAN.md](V0.2_PLAN.md), not descriptions of current behaviour.
+Implemented in 2.2b and covered by `test/providers/manifest_adapter_test.dart`:
+**S1** (allowlist on parsed URIs before connecting, re-checked on every redirect
+hop), **S2** (decoded-byte cap counted while reading), **S4**
+(`ProviderRedaction` for URIs, headers and secrets), **S5** (header templates
+refuse CR/LF and values over 1024 bytes), **S6** (media URL validator: scheme,
+`mediaHosts`, length, control characters) and **S7** (4-request gate for manifest
+work, per-provider pacing, clamped `Retry-After`).
+
+Still to come: **S3** (`FLAG_SECURE`, keystore-backed secrets), **S8** (manifest
+re-validation on load), **S9** (diagnostics buffer), **S10** (review screen),
+**S11** (dispose on remove/background) — every one of them is 2.2c/2.2d, and none
+is claimed today.
+
+Honest limits that remain true of the implemented adapter:
+
+- **Duplicate JSON keys** are last-wins (`dart:convert`) rather than a parse
+error; validation and the adapter read the same decoded map, so this is an
+author-ergonomics gap, not a bypass.
+- **DNS rebinding** is still unprevented (§5 R3); only IP-literal *origins* are
+refused outright.
+- **Pacing** is checked-then-waited without a lock, so two simultaneous calls on
+  one provider can both pass the check before either sends. The global 4-request
+  gate bounds the effect; it is not a rate limiter against a hostile provider.
+- A **media URL** on a declared `mediaHosts` suffix is passed to the player
+  unchanged: the app does not proxy, rewrite or inspect media bytes.

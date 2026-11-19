@@ -1,9 +1,9 @@
 # NEXUS — Provider Contract Test Matrix
 
-**Status:** the built-in, resolution and persistence layers are **implemented and
-executed** as of `v0.2.0-alpha.1` (T-A, T-R, T-P and part of §2's state coverage in
-`test/providers/`). The manifest layers (T-M, T-B) and the Sources UI layer (T-S)
-remain specifications for 2.2b–2.2d. This matrix defines what "the provider
+**Status:** the built-in, resolution, persistence and **manifest** layers are
+**implemented and executed** as of `v0.2.0-alpha.1` (T-A, T-M, T-B, T-R, T-P).
+The Sources UI layer (T-S) and the lifecycle rows marked 2.2c are still
+specifications. This matrix defines what "the provider
 platform works" means, so implementation and verification cannot drift.
 Contracts: [PROVIDERS.md](PROVIDERS.md) §3–§8,
 [PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md),
@@ -37,8 +37,8 @@ Rules applied to every test in this document:
    waits 15 real seconds.
 
 Baseline: 79 tests from v0.1.0-alpha (models, formatting, database, widgets,
-provider contract); all still pass. The suite is **144 tests** after
-`v0.2.0-alpha.1`, which added:
+provider contract); all still pass. The suite is **224 tests** after milestone
+2.2b. The first provider milestone (2.1a–2.2a) added:
 
 | Layer | File | Matrix IDs covered |
 |---|---|---|
@@ -48,9 +48,25 @@ provider contract); all still pass. The suite is **144 tests** after
 | Resolution | `test/providers/provider_resolver_test.dart` | T-R01–T-R04, T-R07–T-R13, T-R15 |
 | Persistence | `test/providers/provider_store_test.dart` | T-P01–T-P05, T-P10, T-P11, plus manifest-size and removal guards |
 
-Not covered yet, deliberately: **T-R14** (needs a disposed widget under a running
-loop), **T-R05/T-R06 lifecycle commands** and **T-P06–T-P09** (secret storage and
-re-validation belong to 2.2c), and every T-M/T-B/T-S row (2.2b–2.2d).
+Milestone 2.2b added 80 more, all hermetic (a `FakeManifestTransport` answers
+every request; no socket is opened):
+
+| Layer | File | Matrix IDs covered |
+|---|---|---|
+| Manifest validation | `test/providers/manifest_validation_test.dart` | T-M01–T-M05, T-M07–T-M14, T-M16–T-M24 (29 tests) |
+| Declaration and search/match | `test/providers/manifest_interpreter_test.dart` | T-B01–T-B15 |
+| Seasons, episodes, resolve | `test/providers/manifest_adapter_test.dart` | T-B17–T-B29 |
+| Status policy and redirects | same file | T-B31–T-B37 |
+| Secrets, redaction, hardening | same file | T-B40, T-B45 |
+| Pacing, cancellation, gate | same file | T-B41, T-B43 |
+| Loading and isolation | same file | Factory isolation, resolver integration |
+
+Still not covered, and why: **T-M15** is exercised as the decoded-byte cap
+(“oversized response”) rather than by asserting an early socket close; **T-B16**
+(per-title preference after a user choice), **T-B30** (configuration → `rejected`),
+**T-B39** (self-hosted LAN base URL end-to-end), **T-B42** (six providers probed
+with the cap), **T-B46** (`dispose()` mid-flight under the resolver) and
+**T-R14** belong to 2.2c; every **T-S** row belongs to 2.2d.
 
 ---
 

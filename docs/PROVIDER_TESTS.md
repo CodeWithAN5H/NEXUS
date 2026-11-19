@@ -1,8 +1,11 @@
 # NEXUS — Provider Contract Test Matrix
 
-**Status:** specification for v0.2.0-alpha; no test in this document exists yet.
-It defines what "the provider platform works" means, so implementation and
-verification cannot drift. Contracts: [PROVIDERS.md](PROVIDERS.md) §3–§8,
+**Status:** the built-in, resolution and persistence layers are **implemented and
+executed** as of `v0.2.0-alpha.1` (T-A, T-R, T-P and part of §2's state coverage in
+`test/providers/`). The manifest layers (T-M, T-B) and the Sources UI layer (T-S)
+remain specifications for 2.2b–2.2d. This matrix defines what "the provider
+platform works" means, so implementation and verification cannot drift.
+Contracts: [PROVIDERS.md](PROVIDERS.md) §3–§8,
 [PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md),
 [PROVIDER_SECURITY.md](PROVIDER_SECURITY.md).
 
@@ -33,8 +36,21 @@ Rules applied to every test in this document:
 5. **Deterministic time.** Timeouts use an injected clock, so the suite never
    waits 15 real seconds.
 
-Existing baseline that must keep passing unchanged: 79 tests from v0.1.0-alpha
-(models, formatting, database, widgets, current provider contract).
+Baseline: 79 tests from v0.1.0-alpha (models, formatting, database, widgets,
+provider contract); all still pass. The suite is **144 tests** after
+`v0.2.0-alpha.1`, which added:
+
+| Layer | File | Matrix IDs covered |
+|---|---|---|
+| Built-in adapter | `test/providers/provider_contract_test.dart` | T-A03–T-A09, ambiguity (T-A07), typed failures (T-A08) |
+| Axes | `test/providers/provider_state_test.dart` | The six derived states and configuration evaluation (T-S01 fixtures) |
+| Metadata interface | `test/providers/metadata_provider_test.dart` | T-A09, T-A10 |
+| Resolution | `test/providers/provider_resolver_test.dart` | T-R01–T-R04, T-R07–T-R13, T-R15 |
+| Persistence | `test/providers/provider_store_test.dart` | T-P01–T-P05, T-P10, T-P11, plus manifest-size and removal guards |
+
+Not covered yet, deliberately: **T-R14** (needs a disposed widget under a running
+loop), **T-R05/T-R06 lifecycle commands** and **T-P06–T-P09** (secret storage and
+re-validation belong to 2.2c), and every T-M/T-B/T-S row (2.2b–2.2d).
 
 ---
 

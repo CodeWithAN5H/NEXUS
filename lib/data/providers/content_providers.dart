@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../integrations/anilist/anilist_client.dart';
-import '../../integrations/streaming/source_manager.dart';
+import '../../integrations/providers/provider_record.dart';
+import '../../integrations/providers/provider_resolver.dart';
 import '../models/anime.dart';
 import '../models/explore_filter.dart';
 import '../models/library.dart';
+import '../models/media_page.dart';
 import '../repositories/library_repository.dart';
 import 'app_providers.dart';
 
@@ -207,13 +208,27 @@ final animeDetailsProvider = FutureProvider.family<Anime, int>((
   return ref.watch(metadataRepositoryProvider).details(animeId);
 });
 
-/// Whether any enabled source can serve this title, and which one.
+/// Every enabled source that can serve this title, in the user's order.
+///
+/// The resolver is built per lookup from the stored rows, so enablement,
+/// priority and per-title preference all have one source of truth.
 final sourceLookupProvider = FutureProvider.family<SourceLookup, int>((
   Ref ref,
   int animeId,
 ) async {
   final Anime anime = await ref.watch(animeDetailsProvider(animeId).future);
-  return ref.watch(sourceManagerProvider).lookup(anime);
+  final List<ProviderRecord> records = await ref.watch(
+    providerRecordsProvider.future,
+  );
+  final String? preference = await ref.watch(
+    providerTitlePreferenceProvider(animeId).future,
+  );
+  final ProviderResolver resolver = ProviderResolver(
+    registry: ref.watch(streamingProviderRegistryProvider),
+    records: records,
+    titlePreferences: <int, String>{animeId: ?preference},
+  );
+  return resolver.lookup(anime);
 });
 
 /// Recorded positions for each episode of one title.

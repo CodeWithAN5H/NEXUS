@@ -1,16 +1,19 @@
-import '../../integrations/anilist/anilist_client.dart';
+import '../../integrations/providers/metadata_provider.dart';
 import '../models/anime.dart';
 import '../models/explore_filter.dart';
+import '../models/media_page.dart';
 
 /// Metadata access with a short-lived in-memory cache.
 ///
-/// AniList is public and rate limited, so identical rail requests within the TTL
-/// are served from memory. Nothing here is authoritative user data — the cache is
-/// safe to discard at any time.
+/// Depends on [MetadataProvider], never on a concrete catalogue: swapping or
+/// supplementing AniList happens behind this interface. The cache stays here,
+/// above the interface, so every catalogue gets the same TTL behaviour.
+/// Nothing here is authoritative user data — the cache is safe to discard at any
+/// time.
 class MetadataRepository {
   MetadataRepository(this._client, {this.ttl = const Duration(minutes: 5)});
 
-  final AniListClient _client;
+  final MetadataProvider _client;
   final Duration ttl;
 
   final Map<String, _CacheEntry<Object>> _cache =
@@ -74,7 +77,7 @@ class MetadataRepository {
       _memo<Anime>('anime:$id', () => _client.details(id));
 
   Future<List<String>> genres() =>
-      _memo<List<String>>('genres', _client.genreCollection);
+      _memo<List<String>>('genres', _client.genres);
 
   /// Clears the cache — used by pull-to-refresh and after failures.
   void invalidate([String? prefix]) {

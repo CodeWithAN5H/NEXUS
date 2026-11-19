@@ -1,7 +1,7 @@
 name: nexus
 description: "NEXUS — premium cross-platform anime discovery and streaming."
 publish_to: "none"
-version: 0.1.0-alpha+1
+version: 0.2.0-alpha.1+2
 
 environment:
   sdk: ^3.14.0
@@ -44,7 +44,10 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   drift_dev: ^2.35.3
-  build_runner: ^2.17.1
+  # 2.17.1 requires build 5.0.0, which is missing the AssetId extension that
+  # version references (upstream packaging break). 2.16.2 + build 4.x generates
+  # the Drift code correctly; this is dev tooling only.
+  build_runner: 2.16.2
 
 flutter:
   uses-material-design: true

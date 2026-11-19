@@ -1,9 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/data/models/anime.dart';
-import 'package:nexus/integrations/streaming/provider_registry_bootstrap.dart';
+import 'package:nexus/integrations/providers/provider_descriptor.dart';
+import 'package:nexus/integrations/providers/provider_failure.dart';
+import 'package:nexus/integrations/providers/provider_registries.dart';
+import 'package:nexus/integrations/providers/provider_registry_bootstrap.dart';
 import 'package:nexus/integrations/streaming/sample_provider.dart';
-import 'package:nexus/integrations/streaming/source_manager.dart';
 import 'package:nexus/integrations/streaming/streaming_provider.dart';
+
+import 'providers/support/fake_providers.dart';
 
 const Anime _realAnime = Anime(
   id: 154587,
@@ -13,16 +17,44 @@ const Anime _realAnime = Anime(
 void main() {
   const SamplePlaybackProvider provider = SamplePlaybackProvider();
 
-  group('SamplePlaybackProvider contract', () {
-    test('advertises its capabilities and limited availability', () {
+  group('SamplePlaybackProvider descriptor', () {
+    test('declares a stable envelope and honest capabilities', () {
       expect(provider.id, SamplePlaybackProvider.providerId);
+      expect(provider.name, isNotEmpty);
+      expect(provider.version, isNotEmpty);
+      expect(provider.kind, ProviderKind.streaming);
+      expect(provider.origin, ProviderOrigin.builtIn);
+      expect(provider.contract.supports(ProviderContract.current), isTrue);
+      expect(provider.configuration, isEmpty);
       expect(provider.capabilities, contains(ProviderCapability.episodes));
       expect(provider.capabilities, contains(ProviderCapability.streams));
       expect(provider.capabilities, contains(ProviderCapability.qualities));
-      expect(provider.status.availability, ProviderAvailability.limited);
-      expect(provider.status.isUsable, isTrue);
+      expect(
+        provider.capabilities,
+        contains(ProviderCapability.seriesMatching),
+      );
     });
 
+    test('probes to limited availability with a timestamp', () async {
+      final ProviderStatusSnapshot snapshot = await provider.probe();
+      expect(snapshot.availability, ProviderAvailability.limited);
+      expect(snapshot.canServe, isTrue);
+      expect(snapshot.message, isNotEmpty);
+      expect(
+        snapshot.observedAt.isAfter(
+          DateTime.now().subtract(const Duration(minutes: 1)),
+        ),
+        isTrue,
+      );
+    });
+
+    test('dispose is idempotent', () async {
+      await provider.dispose();
+      await provider.dispose();
+    });
+  });
+
+  group('SamplePlaybackProvider behaviour', () {
     test('never claims a real anime title', () async {
       expect(await provider.match(_realAnime), isNull);
     });
@@ -78,7 +110,7 @@ void main() {
       },
     );
 
-    test('rejects an unknown episode id', () async {
+    test('rejects an unknown episode with a typed failure', () {
       expect(
         () => provider.resolve(
           provider.testLibrary,
@@ -90,7 +122,7 @@ void main() {
             title: 'Missing',
           ),
         ),
-        throwsA(isA<ProviderException>()),
+        throwsA(isA<ProviderNotFound>()),
       );
     });
   });
@@ -147,42 +179,78 @@ void main() {
     });
   });
 
-  group('SourceManager', () {
-    final SourceManager manager = SourceManager(
-      buildProviderRegistry(),
-      <String>{SamplePlaybackProvider.providerId},
-    );
-
-    test('registers the sample provider by id', () {
-      final ProviderRegistry registry = buildProviderRegistry();
+  group('StreamingProviderRegistry', () {
+    test('registers built-ins by id and evaluates compatibility', () {
+      final StreamingProviderRegistry registry =
+          buildStreamingProviderRegistry();
       expect(registry.byId(SamplePlaybackProvider.providerId), isNotNull);
       expect(registry.all, hasLength(1));
-    });
-
-    test('reports no source for real anime metadata', () async {
-      final SourceLookup lookup = await manager.lookup(_realAnime);
-      expect(lookup.hasSource, isFalse);
-      expect(lookup.resolution, isNull);
-      expect(lookup.attempted, 1);
-    });
-
-    test('exposes no providers when the user disables everything', () async {
-      final SourceManager disabled = SourceManager(
-        buildProviderRegistry(),
-        const <String>{},
+      expect(
+        registry.compatibilityOf(SamplePlaybackProvider.providerId),
+        ProviderCompatibility.compatible,
       );
-      expect(disabled.enabledProviders, isEmpty);
-      final SourceLookup lookup = await disabled.lookup(_realAnime);
-      expect(lookup.attempted, 0);
-      expect(lookup.hasSource, isFalse);
     });
 
-    test('sorts episodes for a resolved source', () async {
-      final ProviderSeries series = SamplePlaybackProvider().testLibrary;
-      final List<ProviderEpisode> episodes = await manager.episodesFor(
-        SourceResolution(provider: provider, series: series),
+    test('refuses duplicate ids', () {
+      expect(
+        () => StreamingProviderRegistry(<StreamingProvider>[
+          FakeStreamingProvider(id: 'dup'),
+          FakeStreamingProvider(id: 'dup'),
+        ]),
+        throwsA(isA<ArgumentError>()),
       );
-      expect(episodes.first.number, lessThan(episodes.last.number));
+    });
+
+    test('derives requiresNewerApp and unsupportedContract', () {
+      final StreamingProviderRegistry registry = StreamingProviderRegistry(
+        <StreamingProvider>[
+          FakeStreamingProvider(
+            id: 'future',
+            contract: const ProviderContractRange(min: 9, max: 9),
+          ),
+          FakeStreamingProvider(
+            id: 'retired',
+            contract: const ProviderContractRange(min: 0, max: 0),
+          ),
+        ],
+      );
+      expect(
+        registry.compatibilityOf('future'),
+        ProviderCompatibility.requiresNewerApp,
+      );
+      expect(
+        registry.compatibilityOf('retired'),
+        ProviderCompatibility.unsupportedContract,
+      );
+    });
+
+    test('derives unsupportedPlatform for a foreign platform', () {
+      final StreamingProviderRegistry registry = StreamingProviderRegistry(
+        <StreamingProvider>[
+          FakeStreamingProvider(
+            id: 'android-only',
+            platforms: const <ProviderPlatform>{ProviderPlatform.android},
+          ),
+        ],
+        platform: ProviderPlatform.linux,
+      );
+      expect(
+        registry.compatibilityOf('android-only'),
+        ProviderCompatibility.unsupportedPlatform,
+      );
+    });
+
+    test('enabled() filters by the user set without reordering', () {
+      final StreamingProviderRegistry registry = StreamingProviderRegistry(
+        <StreamingProvider>[
+          FakeStreamingProvider(id: 'a'),
+          FakeStreamingProvider(id: 'b'),
+        ],
+      );
+      expect(
+        registry.enabled(<String>{'b'}).map((StreamingProvider p) => p.id),
+        <String>['b'],
+      );
     });
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -19,7 +21,8 @@ import '../../data/models/anime.dart';
 import '../../data/models/library.dart';
 import '../../data/providers/app_providers.dart';
 import '../../data/providers/content_providers.dart';
-import '../../integrations/streaming/source_manager.dart';
+import '../../integrations/providers/provider_failure.dart';
+import '../../integrations/providers/provider_resolver.dart';
 import '../../integrations/streaming/streaming_provider.dart';
 import '../player/playback_request.dart';
 
@@ -426,7 +429,7 @@ class _Actions extends ConsumerWidget {
     SourceResolution resolution,
   ) async {
     final List<ProviderEpisode> episodes = await ref
-        .read(sourceManagerProvider)
+        .read(sourceResolverProvider)
         .episodesFor(resolution);
     if (!context.mounted) return;
     if (episodes.isEmpty) {
@@ -444,8 +447,7 @@ class _Actions extends ConsumerWidget {
       (ProviderEpisode episode) => episode.number == target,
       orElse: () => episodes.first,
     );
-    final bool isSample =
-        resolution.provider.status.availability == ProviderAvailability.limited;
+    final bool isSample = resolution.isSample;
 
     await context.push(
       '/watch',
@@ -564,14 +566,37 @@ class _TabBar extends StatelessWidget {
   }
 }
 
-class _EpisodesTab extends ConsumerWidget {
+class _EpisodesTab extends ConsumerStatefulWidget {
   const _EpisodesTab({required this.anime, required this.entry});
 
   final Anime anime;
   final LibraryEntry? entry;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_EpisodesTab> createState() => _EpisodesTabState();
+}
+
+class _EpisodesTabState extends ConsumerState<_EpisodesTab> {
+  String? _selectedProviderId;
+
+  /// Remembers the choice for this title; the resolver puts it first on every
+  /// later lookup, and a removed provider simply falls back to priority order.
+  Future<void> _chooseSource(int animeId, String providerId) async {
+    setState(() => _selectedProviderId = providerId);
+    try {
+      await ref.read(providerStoreProvider).setPreference(animeId, providerId);
+      if (!mounted) return;
+      ref.invalidate(providerTitlePreferenceProvider(animeId));
+      ref.invalidate(sourceLookupProvider(animeId));
+    } catch (error) {
+      if (mounted) showNexusFailure(context, error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Anime anime = widget.anime;
+    final LibraryEntry? entry = widget.entry;
     final AsyncValue<SourceLookup> lookup = ref.watch(
       sourceLookupProvider(anime.id),
     );
@@ -591,80 +616,205 @@ class _EpisodesTab extends ConsumerWidget {
       onRetry: () => ref.invalidate(sourceLookupProvider(anime.id)),
       loading: const LoadingSkeleton(height: 120),
       builder: (BuildContext context, SourceLookup result) {
-        final SourceResolution? resolution = result.resolution;
-        if (resolution == null) {
-          return EmptyState(
-            compact: true,
-            icon: Icons.play_disabled_rounded,
-            title: 'No source available',
-            message:
-                'None of your enabled sources has this title. NEXUS ships with '
-                'no anime streaming source — you can verify playback with the '
-                'built-in test library, or register an authorised provider.',
-            action: SecondaryButton(
-              label: 'Manage sources',
-              icon: Icons.tune_rounded,
-              onPressed: () => context.push('/sources'),
-            ),
+        final SourceResolution? chosen =
+            result.forProvider(_selectedProviderId ?? '') ?? result.resolution;
+        if (chosen == null) {
+          // Every source failing is an error state, not an empty catalogue: the
+          // user gets the per-provider reasons and a retry (PROVIDER_TESTS T-R08).
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (result.hasFailures) _SourceErrors(failures: result.failures),
+              EmptyState(
+                compact: true,
+                icon: result.hasFailures
+                    ? Icons.cloud_off_rounded
+                    : Icons.play_disabled_rounded,
+                title: result.hasFailures
+                    ? 'Sources could not be reached'
+                    : 'No source available',
+                message: result.hasFailures
+                    ? 'Every enabled source failed for this title. Your library, '
+                          'history and metadata are unaffected.'
+                    : 'None of your enabled sources has this title. NEXUS ships '
+                          'with no anime streaming source — you can verify '
+                          'playback with the built-in test library, or register '
+                          'an authorised provider.',
+                action: result.hasFailures
+                    ? SecondaryButton(
+                        label: 'Try again',
+                        icon: Icons.refresh_rounded,
+                        onPressed: () =>
+                            ref.invalidate(sourceLookupProvider(anime.id)),
+                      )
+                    : SecondaryButton(
+                        label: 'Manage sources',
+                        icon: Icons.tune_rounded,
+                        onPressed: () => context.push('/sources'),
+                      ),
+              ),
+            ],
           );
         }
-        return FutureBuilder<List<ProviderEpisode>>(
-          future: ref.read(sourceManagerProvider).episodesFor(resolution),
-          builder:
-              (
-                BuildContext context,
-                AsyncSnapshot<List<ProviderEpisode>> snapshot,
-              ) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const LoadingSkeleton(height: 120);
-                }
-                final List<ProviderEpisode> episodes =
-                    snapshot.data ?? const <ProviderEpisode>[];
-                if (episodes.isEmpty) {
-                  return EmptyState(
-                    compact: true,
-                    icon: Icons.list_alt_rounded,
-                    title: 'No episodes listed',
-                    message:
-                        '${resolution.provider.name} matched this title but '
-                        'returned no episodes.',
-                  );
-                }
-                return Column(
-                  children: <Widget>[
-                    for (final ProviderEpisode episode in episodes)
-                      EpisodeTile(
-                        number: episode.number,
-                        title: episode.title,
-                        duration: episode.duration,
-                        thumbnail: episode.thumbnail,
-                        progress: progress[episode.number]?.fraction,
-                        watched:
-                            (progress[episode.number]?.fraction ?? 0) >= 0.9 ||
-                            (entry?.watchedEpisodes ?? 0) >= episode.number,
-                        onTap: () => context.push(
-                          '/watch',
-                          extra: PlaybackRequest(
-                            animeId: anime.id,
-                            animeTitle: anime.displayTitle,
-                            providerId: resolution.provider.id,
-                            seriesId: resolution.series.seriesId,
-                            episodeNumber: episode.number,
-                            episodeTitle: episode.title,
-                            coverImage: anime.coverImage,
-                            bannerImage: anime.bannerImage,
-                            totalEpisodes: anime.episodes ?? episodes.length,
-                            isSample:
-                                resolution.provider.status.availability ==
-                                ProviderAvailability.limited,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
+        final SourceResolution resolution = chosen;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            if (result.matches.length > 1) ...<Widget>[
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: <Widget>[
+                  for (final SourceResolution match in result.matches)
+                    GenreChip(
+                      label: match.provider.name,
+                      dense: true,
+                      selected: match.provider.id == resolution.provider.id,
+                      onTap: () =>
+                          unawaited(_chooseSource(anime.id, match.provider.id)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            if (result.hasFailures) _SourceErrors(failures: result.failures),
+            _EpisodeList(
+              anime: anime,
+              entry: entry,
+              resolution: resolution,
+              progress: progress,
+            ),
+          ],
         );
       },
+    );
+  }
+}
+
+/// One failing source never empties the screen: its errors are collapsed into
+/// a line the user can open.
+class _SourceErrors extends StatefulWidget {
+  const _SourceErrors({required this.failures});
+
+  final Map<String, ProviderFailure> failures;
+
+  @override
+  State<_SourceErrors> createState() => _SourceErrorsState();
+}
+
+class _SourceErrorsState extends State<_SourceErrors> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final int count = widget.failures.length;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Row(
+              children: <Widget>[
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 14,
+                  color: AppColors.error,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$count source${count == 1 ? '' : 's'} failed — '
+                  '${_expanded ? 'hide' : 'show'}',
+                  style: AppTypography.caption.copyWith(fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          if (_expanded)
+            for (final MapEntry<String, ProviderFailure> entry
+                in widget.failures.entries)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 18),
+                child: Text(
+                  '${entry.key}: ${entry.value.message}',
+                  style: AppTypography.caption.copyWith(fontSize: 11),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EpisodeList extends ConsumerWidget {
+  const _EpisodeList({
+    required this.anime,
+    required this.entry,
+    required this.resolution,
+    required this.progress,
+  });
+
+  final Anime anime;
+  final LibraryEntry? entry;
+  final SourceResolution resolution;
+  final Map<int, WatchProgress> progress;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<List<ProviderEpisode>>(
+      future: ref.read(sourceResolverProvider).episodesFor(resolution),
+      builder:
+          (
+            BuildContext context,
+            AsyncSnapshot<List<ProviderEpisode>> snapshot,
+          ) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const LoadingSkeleton(height: 120);
+            }
+            final List<ProviderEpisode> episodes =
+                snapshot.data ?? const <ProviderEpisode>[];
+            if (episodes.isEmpty) {
+              return EmptyState(
+                compact: true,
+                icon: Icons.list_alt_rounded,
+                title: 'No episodes listed',
+                message:
+                    '${resolution.provider.name} matched this title but '
+                    'returned no episodes.',
+              );
+            }
+            return Column(
+              children: <Widget>[
+                for (final ProviderEpisode episode in episodes)
+                  EpisodeTile(
+                    number: episode.number,
+                    title: episode.title,
+                    duration: episode.duration,
+                    thumbnail: episode.thumbnail,
+                    progress: progress[episode.number]?.fraction,
+                    watched:
+                        (progress[episode.number]?.fraction ?? 0) >= 0.9 ||
+                        (entry?.watchedEpisodes ?? 0) >= episode.number,
+                    onTap: () => context.push(
+                      '/watch',
+                      extra: PlaybackRequest(
+                        animeId: anime.id,
+                        animeTitle: anime.displayTitle,
+                        providerId: resolution.provider.id,
+                        seriesId: resolution.series.seriesId,
+                        episodeNumber: episode.number,
+                        episodeTitle: episode.title,
+                        coverImage: anime.coverImage,
+                        bannerImage: anime.bannerImage,
+                        totalEpisodes: anime.episodes ?? episodes.length,
+                        isSample: resolution.isSample,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
     );
   }
 }

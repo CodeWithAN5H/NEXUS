@@ -35,6 +35,12 @@ items below; they do not add scope.
 | 2.5 Platform and branding | 2.5a Windows verification, 2.5b icon and splash | [UI_SPEC.md](UI_SPEC.md) |
 | Verification | every milestone | [PROVIDER_TESTS.md](docs/PROVIDER_TESTS.md) |
 
+**Progress (2026-11-19):** 2.1a, 2.1b, 2.2a and 2.1c are implemented, tested and
+built as `v0.2.0-alpha.1`; publication waits on the release keystore. Remaining:
+2.2b–2.2d (declarative manifests, lifecycle, Sources surface), 2.3a–2.3b, 2.4a–2.4b,
+2.5a–2.5b. See [PROJECT_STATUS.md](PROJECT_STATUS.md) §11 and
+[docs/V0.2_PLAN.md](docs/V0.2_PLAN.md).
+
 **2.1 — Provider platform core**
 
 - Split the contract into two kinds: `MetadataProvider` (AniList as the first

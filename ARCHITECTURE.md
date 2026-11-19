@@ -102,17 +102,24 @@ worth testing explicitly.
 `lib/integrations/streaming/streaming_provider.dart` defines it today:
 
 ```dart
-abstract class StreamingProvider {
-  String get id, name, description, attribution;
-  Set<ProviderCapability> get capabilities;   // declared, never guessed
-  ProviderStatus get status;                  // ready | limited | needsConfiguration | unavailable
-  Future<List<ProviderSeries>> search(String query);
-  Future<ProviderSeries?> match(Anime anime); // null when the provider has no entry
+abstract class StreamingProvider extends ProviderDescriptor {
+  Set<ProviderCapability> get capabilities;      // declared, never guessed
+  Future<ProviderStatusSnapshot> probe();        // timestamped observation
+  Future<List<ProviderSeries>> search(String query, {int page});
+  Future<ProviderSeries?> match(Anime anime);    // null when the provider has no entry
   Future<List<ProviderSeason>> seasons(ProviderSeries series);
   Future<List<ProviderEpisode>> episodes(ProviderSeries series, {String? seasonId});
   Future<EpisodeStream> resolve(ProviderSeries series, ProviderEpisode episode);
+  Future<void> dispose();                        // mandatory, idempotent
 }
 ```
+
+`ProviderDescriptor` (in `lib/integrations/providers/provider_descriptor.dart`)
+adds stable id, name, description, version, kind, origin, contract range,
+platform set, declared configuration fields and attribution. `MetadataProvider`
+shares the envelope and declares `Set<MetadataCapability>` instead; the two kinds
+have separate registries (`provider_registries.dart`) and AniList lives behind
+`AniListMetadataProvider` in `lib/integrations/anilist/`.
 
 `EpisodeStream` carries variants (with heights for quality selection), subtitles,
 audio tracks, required HTTP headers, and an `isSample` flag.
@@ -142,15 +149,16 @@ different owners and different UI treatments, and only one of them is retryable.
 
 ### 5.4 Registration and user composition
 
-`ProviderRegistry` (built in `provider_registry_bootstrap.dart`) is the only
-place built-in providers are registered. `SourceManager` applies the user's
+`lib/integrations/providers/provider_registry_bootstrap.dart` is the only place
+both provider kinds are registered (two lists, one file); compatibility is
+evaluated once there, at registration. `SourceManager` applies the user's
 enabled set and probes providers in order, collecting per-provider failures for
 the UI.
 
 **Adding a built-in provider:**
 
 1. Implement `StreamingProvider` and its descriptor.
-2. Declare honest `capabilities`, `status` and configuration fields.
+2. Declare honest `capabilities`, a `probe()` snapshot and configuration fields.
 3. Add it to the list in `provider_registry_bootstrap.dart`.
 
 No screen, route, repository or schema changes. The sample provider exists to
@@ -180,12 +188,17 @@ install review shows origin, capabilities and hosts before anything is added.
 ### 5.5 Resolution
 
 ```
-Details → sourceResolutionProvider(animeId) → ProviderResolver.lookup(anime)
+Details → sourceLookupProvider(animeId) → ProviderResolver.lookup(anime)
    candidates = installed ∩ enabled ∩ compatible ∩ configured ∩ seriesMatching
-   order      = user priority (default install order)
-   probe      = concurrent, capped, per-provider timeout
+   order      = stored priority (default install order)
+   probe      = concurrent, capped at 4, per-provider timeout
    result     = every match + Map<providerId, ProviderFailure> + per-title preference
 ```
+
+`lib/integrations/providers/provider_resolver.dart` implements this. The details
+Episodes tab lists every match, lets the user choose one (persisted in
+`provider_title_prefs`), and collapses per-provider failures into one line. A
+saved resume hint whose provider is gone re-resolves the title instead of failing.
 
 v0.1 returns the first match. v0.2 keeps all matches and a user preference per
 title, because "the first provider that knows this show" is not "the provider the
@@ -252,7 +265,11 @@ Branch indices are fixed and mirrored in `navigation_destinations.dart`; the rou
 | Manifest schema | `test/providers/manifest_schema_test.dart` (v0.2) | Valid/invalid manifests, error codes and paths; the committed examples in `docs/schema/examples/` |
 | Manifest adapter | `test/providers/manifest_adapter_test.dart` (v0.2) | Mapping, coercion, timeouts, malformed responses, stream-URL refusal, allowlist |
 | Resolution | `test/providers/resolver_test.dart` (v0.2) | Collect-all, priority, per-title preference, partial failure, capability gating |
-| Provider store | `test/providers/provider_store_test.dart` (v0.2) | Schema v2 migration, restart persistence, non-destructive removal, secrets absent from SQLite |
+| Provider contract | `test/providers/provider_contract_test.dart` | Descriptor honesty, capability parity, typed failures, ambiguity, independent registries |
+| Provider axes | `test/providers/provider_state_test.dart` | Configuration evaluation and all six derived states |
+| Metadata interface | `test/providers/metadata_provider_test.dart` | Metadata works with zero streaming providers; no AniList client import outside its package |
+| Resolution | `test/providers/resolver_test.dart` | Collect-all, priority, per-title preference, partial failure, gating, probe cap, match cache |
+| Provider store | `test/providers/provider_store_test.dart` | Schema v2 migration from `test/fixtures/nexus_v1.sqlite`, restart persistence, non-destructive removal |
 
 The full matrix, with expected outcomes per test, is
 [docs/PROVIDER_TESTS.md](docs/PROVIDER_TESTS.md).

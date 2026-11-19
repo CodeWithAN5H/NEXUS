@@ -12,6 +12,8 @@ import '../../core/widgets/chips.dart';
 import '../../core/widgets/responsive.dart';
 import '../../core/widgets/states.dart';
 import '../../data/providers/app_providers.dart';
+import '../../integrations/providers/provider_failure.dart';
+import '../../integrations/providers/provider_state.dart';
 import '../../integrations/streaming/streaming_provider.dart';
 import '../player/playback_request.dart';
 
@@ -73,6 +75,13 @@ class SourcesScreen extends ConsumerWidget {
                   for (final StreamingProvider provider in providers)
                     _ProviderCard(
                       provider: provider,
+                      state: switch (ref.watch(
+                        providerStateProvider(provider.id),
+                      )) {
+                        AsyncData<ProviderState>(:final ProviderState value) =>
+                          value,
+                        _ => null,
+                      },
                       enabled: enabled.contains(provider.id),
                       onToggle: () => ref
                           .read(settingsProvider.notifier)
@@ -97,6 +106,7 @@ class SourcesScreen extends ConsumerWidget {
     StreamingProvider provider,
   ) async {
     try {
+      final ProviderStatusSnapshot snapshot = await provider.probe();
       final List<ProviderSeries> results = await provider.search('');
       if (results.isEmpty) {
         if (context.mounted) {
@@ -138,11 +148,10 @@ class SourcesScreen extends ConsumerWidget {
           episodeTitle: episode.title,
           coverImage: series.coverImage,
           totalEpisodes: episodes.length,
-          isSample:
-              provider.status.availability == ProviderAvailability.limited,
+          isSample: snapshot.availability == ProviderAvailability.limited,
         ),
       );
-    } on ProviderException catch (error) {
+    } on ProviderFailure catch (error) {
       if (context.mounted) {
         showNexusMessage(context, error.message, isError: true);
       }
@@ -155,28 +164,51 @@ class SourcesScreen extends ConsumerWidget {
 class _ProviderCard extends StatelessWidget {
   const _ProviderCard({
     required this.provider,
+    required this.state,
     required this.enabled,
     required this.onToggle,
     required this.onTest,
   });
 
   final StreamingProvider provider;
+
+  /// `null` while the axes are being computed — the card stays readable.
+  final ProviderState? state;
   final bool enabled;
   final VoidCallback onToggle;
   final VoidCallback onTest;
 
-  @override
-  Widget build(BuildContext context) {
-    final ProviderStatus status = provider.status;
-    final (Color color, String label) = switch (status.availability) {
-      ProviderAvailability.ready => (AppColors.success, 'Ready'),
-      ProviderAvailability.limited => (AppColors.warning, 'Test content only'),
-      ProviderAvailability.needsConfiguration => (
+  /// One derived chip per provider; the action that can change it lives below.
+  static (Color, String) _chip(ProviderState? state) {
+    if (state == null) return (AppColors.textMuted, 'Checking…');
+    return switch (state.presentation) {
+      ProviderPresentationState.usable =>
+        state.observedAvailability == ProviderAvailability.limited
+            ? (AppColors.warning, 'Test content only')
+            : (AppColors.success, 'Ready'),
+      ProviderPresentationState.needsSetup => (
         AppColors.warning,
         'Setup required',
       ),
-      ProviderAvailability.unavailable => (AppColors.error, 'Unavailable'),
+      ProviderPresentationState.rejectedConfiguration => (
+        AppColors.error,
+        'Sign-in rejected',
+      ),
+      ProviderPresentationState.incompatible => (
+        AppColors.textMuted,
+        'Incompatible',
+      ),
+      ProviderPresentationState.unavailable => (
+        AppColors.error,
+        'Temporarily unavailable',
+      ),
+      ProviderPresentationState.disabled => (AppColors.textMuted, 'Off'),
     };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color color, String label) = _chip(state);
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -223,7 +255,8 @@ class _ProviderCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '${status.message} · ${provider.attribution}',
+            '${state?.message ?? provider.description} · '
+            '${provider.attribution}',
             style: AppTypography.caption.copyWith(fontSize: 11),
           ),
           const SizedBox(height: AppSpacing.sm),

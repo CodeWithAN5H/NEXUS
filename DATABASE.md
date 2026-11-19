@@ -6,7 +6,7 @@
 |---|---|
 | Engine | SQLite via **Drift 2.35.4** (`drift_flutter` 0.3.1 bundles the native library on Android and Windows) |
 | File | `nexus.sqlite` in the platform application-documents directory (`getApplicationDocumentsDirectory`) |
-| Schema version | `1` — `AppConstants.databaseSchemaVersion` must always equal `NexusDatabase.schemaVersion` |
+| Schema version | `2` — `AppConstants.databaseSchemaVersion` must always equal `NexusDatabase.schemaVersion` |
 | Generated code | `lib/data/database/nexus_database.g.dart` (`dart run build_runner build`) |
 | Foreign keys | `PRAGMA foreign_keys = ON` in `beforeOpen` |
 
@@ -134,40 +134,47 @@ CREATE INDEX idx_library_status ON library_entries(status);
 CREATE INDEX idx_progress_updated ON progress_entries(updated_at DESC);
 ```
 
-## 6. Planned schema v2 — provider platform (not implemented)
+## 6. Schema v2 — provider platform (implemented in v0.2.0-alpha.1)
 
-Specified by [docs/PROVIDERS.md](docs/PROVIDERS.md) §9 for v0.2 and sequenced as
-milestone 2.2a in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md) §2. Nothing here exists
-yet; this section records the intended additive migration so the schema revision
-is not improvised later. No existing table or column is altered, and the migration
-test runs against a committed v1 database file rather than a freshly created one.
+Milestone 2.2a of [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md); specification in
+[docs/PROVIDERS.md](docs/PROVIDERS.md) §9. The migration is additive: no v1 table
+or column is altered. It is proven against `test/fixtures/nexus_v1.sqlite`, a real
+database written by v0.1.0-alpha and committed unchanged, not a freshly created
+one.
 
 | Table | Columns | Notes |
 |---|---|---|
-| `provider_entries` | `provider_id` TEXT **PK**, `origin` TEXT (builtIn/userAdded), `manifest_version` TEXT, `contract_version` INTEGER, `enabled` INTEGER (bool), `priority` INTEGER, `config_json` TEXT, `installed_at` DATETIME | One row per installed provider. `config_json` holds **non-secret** values only. |
-| `provider_title_prefs` | `anime_id` INTEGER, `provider_id` TEXT, composite **PK** | The user's chosen source per title; deleting it falls back to priority order. |
-| `provider_manifests` | `provider_id` TEXT **PK**, `manifest_json` TEXT, `source_url` TEXT, `installed_at` DATETIME | Only for user-added declarative integrations. |
+| `provider_entries` | `provider_id` TEXT **PK**, `origin` TEXT (builtIn/userAdded), `manifest_version` TEXT NULL, `contract_version` INTEGER NULL, `enabled` INTEGER (bool, default 1), `priority` INTEGER (default 0), `config_json` TEXT (default `'{}'`), `installed_at` DATETIME | One row per installed provider. `config_json` holds **non-secret** values only. `contract_version` records what the provider declared, so compatibility can be reported without parsing it. |
+| `provider_title_prefs` | `anime_id` INTEGER, `provider_id` TEXT, `updated_at` DATETIME, composite **PK** | The user's chosen source per title. The store keeps one row per title (choosing another source replaces it), so a preference is a single choice; a removed provider falls back to priority order. |
+| `provider_manifests` | `provider_id` TEXT **PK**, `manifest_json` TEXT, `source_url` TEXT NULL, `installed_at` DATETIME | Only for user-added declarative integrations (2.2b). |
 
-Rules for the migration:
+Migration rules (all implemented):
 
-1. `onUpgrade` from 1 → 2 creates the tables and backfills `provider_entries`
-   from the existing `sources.enabled` preference (split on `,`).
-2. The old preference key stays readable for one release and is then dropped from
-   `AppSettings`, with defaults preserved for anything missing.
-3. Secrets never enter these tables — they go to the platform keystore keyed
-   `provider.<id>.<field>`.
-4. `progress_entries.provider_id`/`series_id` remain optional resume hints; no
-   foreign key is added, so removing a provider must not cascade.
-5. `provider_manifests.manifest_json` is written only after full validation
-   ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) §2, §9) and is
-   re-validated when loaded; the row is capped at 512 KiB. A stored manifest that
-   no longer validates disables that provider, and never blocks app start.
-6. `provider_entries.contract_version` and `manifest_version` store what the
-   installed document declared, so an older app can report `requiresNewerApp` or
-   `unsupportedContract` without parsing it.
-7. `provider_entries.config_json` is non-secret only. A row is deleted together
-   with the provider's manifest, cached matches and keystore entries in one
-   transaction-like sequence; nothing else is touched.
+1. `onUpgrade` from 1 → 2 creates the three tables, then backfills
+   `provider_entries` from the existing `sources.enabled` preference (split on
+   `,`, priority = position, `origin = 'builtIn'`).
+2. If the preference row is absent, nothing is backfilled and
+   `ProviderStore.syncBuiltIns` seeds registered built-ins from the loaded
+   `AppSettings` defaults — so a fresh install and an upgraded install behave
+   identically. If the row exists but is empty, the built-in is added disabled,
+   which is exactly what an empty v1 set meant.
+3. `syncBuiltIns` only inserts missing rows; it never overwrites enablement or
+   priority, so it is safe on every start.
+4. The migration and store are covered by `test/providers/provider_store_test.dart`:
+   tables and `PRAGMA user_version = 2`, `PRAGMA foreign_keys = 1`, every v1
+   library/progress/search/setting value intact, no duplicate rows on reopen, and
+   new rows written after the upgrade surviving another restart.
+5. Secrets never enter these tables — they go to the platform keystore keyed
+   `provider.<id>.<field>` (2.2c).
+6. `progress_entries.provider_id`/`series_id` remain optional resume hints; no
+   foreign key is added, so removing a provider cannot cascade.
+7. `provider_manifests.manifest_json` is capped at 512 KiB (also enforced by
+   `ProviderStore`) and will be written only after full validation
+   ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) §2, §9); the table exists
+   now so the migration does not have to be repeated in 2.2b.
+8. Removing a provider deletes its `provider_entries`, `provider_title_prefs` and
+   `provider_manifests` rows in one transaction. Library, history and settings are
+   untouched and proven so by a test.
 
 ## 7. Future (not implemented)
 

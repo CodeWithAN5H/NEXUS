@@ -4,9 +4,10 @@ This file is the source of truth for how content providers are described,
 installed, configured, resolved and removed. [ARCHITECTURE.md](../ARCHITECTURE.md)
 §5 summarises it; this document is normative.
 
-**Status:** specification for v0.2.0-alpha. The v0.1.0-alpha code implements a
-subset (see §12). Nothing here is implemented yet, and no schema, source file or
-UI was changed by this revision.
+**Status:** the platform core (§2–§5, §8, §9) is **implemented** in
+`v0.2.0-alpha.1`. The declarative tier (§7 Tier B) and lifecycle configuration
+(§6, keystore secrets, install/remove UI) are specified but not implemented.
+§12 tracks the exact delta between this document and the code.
 
 Companion documents:
 
@@ -93,17 +94,23 @@ and a streaming provider never becomes the source of truth for titles.
 
 ```dart
 abstract class ProviderDescriptor {
-  String get id;              // stable, reverse-dns: 'anilist', 'sample', 'dev.example'
-  String get name;            // display name
-  String get version;         // the provider's own semver
-  String get contractVersion; // provider-platform contract it was written against
+  String get id;                    // stable, reverse-dns: 'anilist', 'sample', 'dev.example'
+  String get name;                  // display name
+  String get description;           // one line, shown in Settings → Sources
+  String get version;               // the provider's own semver
+  ProviderContractRange get contract; // the contract range it supports
   ProviderKind get kind;
-  Set<ProviderCapability> get capabilities;
   List<ProviderConfigField> get configuration;
-  String get attribution;     // licence / credit line, shown wherever content appears
-  ProviderOrigin get origin;  // builtIn | userAdded
+  String get attribution;           // licence / credit line, shown wherever content appears
+  ProviderOrigin get origin;        // builtIn | userAdded
+  Set<ProviderPlatform> get platforms;
 }
 ```
+
+`capabilities` is declared by each kind, not in the shared envelope:
+`Set<ProviderCapability>` for streaming, `Set<MetadataCapability>` for metadata.
+The two contracts do not share a capability vocabulary, and putting one in the
+envelope would have forced a metadata adapter to answer streaming questions.
 
 `id` is permanent for a given provider: it is the key in preferences, in
 `provider_entries` and in saved resume hints. Renaming a display name is free;
@@ -230,7 +237,7 @@ Configuration is declared data, not provider-specific UI.
 class ProviderConfigField {
   final String key;          // 'baseUrl', 'apiKey'
   final String label;
-  final ProviderConfigType type; // text | url | secret | choice | bool
+  final ProviderConfigType type; // text | url | secret | choice | boolean
   final bool required;
   final String? hint;
   final String? defaultValue;
@@ -457,25 +464,21 @@ accepted: [PROVIDER_SECURITY.md](PROVIDER_SECURITY.md).
 
 ## 12. Current implementation vs this specification
 
-| Area | v0.1.0-alpha today | Required for v0.2 |
-|---|---|---|
-| Kinds | One `StreamingProvider` contract | `ProviderKind` + `MetadataProvider` interface; AniList behind it |
-| Registration | `const ProviderRegistry([...])` in one bootstrap file | Same registry for built-ins **plus** an installable descriptor list loaded from the database |
-| Configuration | None — no fields, no validation, no secure storage | Declared config fields, validation, secrets in keystore |
-| Compatibility | Only `ProviderAvailability` (one axis) | Separate compatibility and configuration axes (§2) |
-| Lifecycle | Enable/disable flag in preferences | Install, configure, verify, enable, prioritise, remove, `dispose()` |
-| Ordering | First enabled provider that matches | Collect all matches; user priority; per-title preference |
-| Errors | `ProviderException(message, isRetryable)` | Sealed `ProviderFailure` taxonomy (§8) |
-| Status | Synchronous `status` getter | `probe()` returning a timestamped snapshot |
-| User-added providers | Not possible | Tier B declarative adapter (§7), manifest format v1 with a committed JSON Schema |
-| Manifest validation | None | Offline pipeline: parse → schema → templates → paths → semantics → compatibility ([PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) §9) |
-| Network egress | No allowlist; any URL a provider builds | HTTPS-only, origin-pinned, redirect-checked, size- and time-capped ([PROVIDER_SECURITY.md](PROVIDER_SECURITY.md) §3) |
-| Provider tests | Contract honesty and variant selection only | Full matrix: manifest schema, adapter, resolution, persistence, Sources UI ([PROVIDER_TESTS.md](PROVIDER_TESTS.md)) |
-| Persistence | `sources.enabled` comma list | Schema v2 tables (§9) |
-
-These are documented, deliberately **not** implemented in this revision: the task
-was to finalise the architecture, and changing the contract now would ship a
-half-migrated provider layer.
+| Area | v0.1.0-alpha | v0.2.0-alpha.1 (now) | Remaining |
+|---|---|---|---|
+| Kinds | One contract | ✅ `ProviderKind`, `MetadataProvider`, AniList behind it, separate registries | — |
+| Registration | `const ProviderRegistry([...])` | ✅ `StreamingProviderRegistry` + `MetadataProviderRegistry` in one bootstrap file | Installable descriptors from the database (2.2c) |
+| Configuration | None | ✅ Declared fields, evaluation to `notRequired`/`incomplete`/`configured` | Generated form, validation, keystore secrets (2.2c) |
+| Compatibility | One availability enum | ✅ Three axes + one derived state (§2) | Per-state UI actions (2.2d) |
+| Lifecycle | Enable/disable flag | ✅ `probe()`, idempotent `dispose()`, persisted enablement | Install/configure/verify/remove commands (2.2c) |
+| Ordering | First enabled match | ✅ All matches, stored priority, per-title preference | Reorder control (2.2d) |
+| Errors | `ProviderException(message)` | ✅ Sealed `ProviderFailure` taxonomy (§8) | — |
+| Status | Synchronous getter | ✅ `probe()` → timestamped snapshot | — |
+| User-added providers | Not possible | ❌ | Tier B adapter (§7), manifest v1 (2.2b) |
+| Manifest validation | None | ❌ | Offline pipeline ([PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) §9) |
+| Network egress | No provider-level allowlist | ❌ (no manifest adapter yet) | HTTPS-only, origin-pinned, capped (2.2b) |
+| Provider tests | Contract honesty | ✅ 65 provider tests: contract, axes, resolution, metadata, migration | Manifest and Sources suites ([PROVIDER_TESTS.md](PROVIDER_TESTS.md)) |
+| Persistence | `sources.enabled` | ✅ Schema v2 tables + `ProviderStore` (§9) | Configuration and manifest writes on install (2.2b/2.2c) |
 
 ---
 

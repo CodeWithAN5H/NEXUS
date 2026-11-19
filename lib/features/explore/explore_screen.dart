@@ -18,7 +18,7 @@ import '../../data/models/anime.dart';
 import '../../data/models/explore_filter.dart';
 import '../../data/providers/app_providers.dart';
 import '../../data/providers/content_providers.dart';
-import '../../integrations/anilist/anilist_client.dart';
+import '../../data/models/media_page.dart';
 
 /// Search, filter and browse catalogue metadata.
 class ExploreScreen extends ConsumerStatefulWidget {

@@ -1,65 +1,28 @@
-/// The provider abstraction every content source must implement.
+/// The streaming provider abstraction every content source must implement.
 ///
 /// The UI talks to [StreamingProvider] only. Adding, disabling or replacing a
 /// provider must never require changes to the home, details or player screens.
 library;
 
 import '../../data/models/anime.dart';
+import '../providers/provider_descriptor.dart';
+import '../providers/provider_state.dart';
 
-/// Optional abilities a provider may implement.
-///
-/// A provider advertises what it supports up front so the UI can explain gaps
-/// instead of failing at playback time.
-enum ProviderCapability {
-  search('Search'),
-  seriesMatching('Title matching'),
-  seasons('Season data'),
-  episodes('Episode list'),
-  streams('Video streams'),
-  qualities('Quality selection'),
-  subtitles('Subtitle tracks'),
-  audioTracks('Audio tracks');
-
-  const ProviderCapability(this.label);
-
-  final String label;
-}
-
-/// Whether a provider can service requests right now.
-enum ProviderAvailability {
-  /// Fully usable.
-  ready,
-
-  /// Usable, but only for a small built-in catalogue (sample media).
-  limited,
-
-  /// Requires configuration (credentials, endpoint) before use.
-  needsConfiguration,
-
-  /// Temporarily failing.
-  unavailable,
-}
-
-/// Snapshot of a provider's state for the source-management UI.
-class ProviderStatus {
-  const ProviderStatus({
-    required this.availability,
-    required this.message,
-    this.actionHint,
-  });
-
-  final ProviderAvailability availability;
-
-  /// One-line explanation shown in Settings → Sources.
-  final String message;
-
-  /// Optional next step for the user (e.g. "Add an API key").
-  final String? actionHint;
-
-  bool get isUsable =>
-      availability == ProviderAvailability.ready ||
-      availability == ProviderAvailability.limited;
-}
+// The platform types a provider author needs are available from this file, so
+// adapters do not import the whole platform layer.
+export '../providers/provider_descriptor.dart'
+    show
+        MetadataCapability,
+        ProviderCapability,
+        ProviderConfigField,
+        ProviderConfigType,
+        ProviderContract,
+        ProviderContractRange,
+        ProviderKind,
+        ProviderOrigin,
+        ProviderPlatform;
+export '../providers/provider_state.dart'
+    show ProviderAvailability, ProviderStatusSnapshot;
 
 /// A series as understood by a provider.
 class ProviderSeries {
@@ -69,6 +32,7 @@ class ProviderSeries {
     required this.title,
     this.coverImage,
     this.synopsis,
+    this.year,
     this.seasons = const <ProviderSeason>[],
   });
 
@@ -77,6 +41,10 @@ class ProviderSeries {
   final String title;
   final String? coverImage;
   final String? synopsis;
+
+  /// Release year when the provider declares one — used to stop a remake being
+  /// served as the original.
+  final int? year;
   final List<ProviderSeason> seasons;
 
   bool get hasSeasons => seasons.isNotEmpty;
@@ -227,52 +195,54 @@ class EpisodeStream {
   }
 }
 
-/// Raised when a provider cannot resolve a title or episode.
-class ProviderException implements Exception {
-  const ProviderException(this.message, {this.isRetryable = true});
-
-  final String message;
-  final bool isRetryable;
-
-  @override
-  String toString() => 'ProviderException: $message';
-}
-
 /// A replaceable source of episodes and streams.
 ///
 /// Implementations must not fabricate content: if a capability is unsupported,
 /// [capabilities] must say so and the corresponding method must throw
-/// [ProviderException] rather than returning invented data.
-abstract class StreamingProvider {
-  /// Stable identifier persisted in preferences (`sample`, …).
-  String get id;
+/// `ProviderUnsupported` rather than returning invented data.
+///
+/// Every failure crossing this boundary is a `ProviderFailure`.
+abstract class StreamingProvider extends ProviderDescriptor {
+  const StreamingProvider();
 
-  /// Display name.
-  String get name;
+  @override
+  ProviderKind get kind => ProviderKind.streaming;
 
-  /// One-line description for the sources screen.
-  String get description;
+  @override
+  Set<ProviderPlatform> get platforms => const <ProviderPlatform>{
+    ProviderPlatform.android,
+    ProviderPlatform.windows,
+    ProviderPlatform.linux,
+  };
 
-  /// Attribution/licence note shown where content is presented.
-  String get attribution;
+  @override
+  ProviderContractRange get contract => ProviderContractRange.current;
+
+  @override
+  ProviderOrigin get origin => ProviderOrigin.builtIn;
+
+  @override
+  List<ProviderConfigField> get configuration => const <ProviderConfigField>[];
 
   /// What this provider can actually do.
   Set<ProviderCapability> get capabilities;
 
-  /// Current readiness.
-  ProviderStatus get status;
+  /// Refreshes the availability observation. Must never throw: a provider that
+  /// cannot answer is `unavailable`, not an exception.
+  Future<ProviderStatusSnapshot> probe();
 
   /// Free-text search within the provider catalogue.
-  Future<List<ProviderSeries>> search(String query);
+  Future<List<ProviderSeries>> search(String query, {int page = 1});
 
   /// Attempts to match a metadata title to a provider series.
-  /// Returns `null` when the provider has no matching entry.
+  /// Returns `null` when the provider has no matching entry — never a guess.
   Future<ProviderSeries?> match(Anime anime);
 
   /// Seasons available for [series].
   Future<List<ProviderSeason>> seasons(ProviderSeries series);
 
-  /// Episodes for [series], optionally limited to [seasonId].
+  /// Episodes for [series], optionally limited to [seasonId], absolutely
+  /// numbered and ordered.
   Future<List<ProviderEpisode>> episodes(
     ProviderSeries series, {
     String? seasonId,
@@ -280,6 +250,10 @@ abstract class StreamingProvider {
 
   /// Resolves playable streams for [episode].
   Future<EpisodeStream> resolve(ProviderSeries series, ProviderEpisode episode);
+
+  /// Releases HTTP clients, timers and cached tokens. Must be idempotent, and
+  /// must never close a client owned by the app.
+  Future<void> dispose();
 }
 
 /// Convenience helpers so screens never branch on capability sets by hand.
@@ -295,4 +269,6 @@ extension StreamingProviderCapabilities on StreamingProvider {
       capabilities.contains(ProviderCapability.audioTracks);
   bool get supportsQualities =>
       capabilities.contains(ProviderCapability.qualities);
+  bool get supportsSeriesMatching =>
+      capabilities.contains(ProviderCapability.seriesMatching);
 }

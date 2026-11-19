@@ -15,9 +15,12 @@ import '../../core/theme/app_typography.dart';
 import '../../core/utils/feedback.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/providers/app_providers.dart';
+import '../../data/providers/content_providers.dart';
 import '../../data/repositories/history_repository.dart';
 import '../../data/repositories/library_repository.dart';
 import '../../integrations/playback/playback_session.dart';
+import '../../integrations/providers/provider_failure.dart';
+import '../../integrations/providers/provider_resolver.dart';
 import '../../integrations/streaming/streaming_provider.dart';
 import 'playback_request.dart';
 import 'widgets/player_controls.dart';
@@ -116,7 +119,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _session.errorStream.listen((String message) {
         if (!mounted) return;
         setState(() {
-          _error = ProviderException(message, isRetryable: true);
+          _error = ProviderUpstreamError(
+            providerId: _request.providerId,
+            message: message,
+          );
           _loading = false;
         });
       }),
@@ -144,26 +150,43 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _error = null;
     });
     try {
-      final StreamingProvider? provider = ref
-          .read(providerRegistryProvider)
+      StreamingProvider? provider = ref
+          .read(streamingProviderRegistryProvider)
           .byId(_request.providerId);
+      ProviderSeries? resolvedSeries;
+
+      // A saved resume hint can outlive the provider that produced it. Re-resolve
+      // the title instead of failing the player (PROVIDER_TESTS T-R15).
       if (provider == null) {
-        throw ProviderException(
-          'The source “${_request.providerId}” is no longer registered.',
-          isRetryable: false,
+        final SourceLookup lookup = await ref.read(
+          sourceLookupProvider(_request.animeId).future,
         );
+        final SourceResolution? again = lookup.resolution;
+        if (again == null) {
+          throw ProviderNotFound(
+            providerId: _request.providerId,
+            message:
+                'The source this title was saved with is no longer available, '
+                'and no other source has it.',
+          );
+        }
+        provider = again.provider;
+        resolvedSeries = again.series;
+        _request = _request.copyWith(seriesId: again.series.seriesId);
       }
 
-      final ProviderSeries series = ProviderSeries(
-        providerId: provider.id,
-        seriesId: _request.seriesId,
-        title: _request.animeTitle,
-      );
+      final ProviderSeries series =
+          resolvedSeries ??
+          ProviderSeries(
+            providerId: provider.id,
+            seriesId: _request.seriesId,
+            title: _request.animeTitle,
+          );
       final List<ProviderEpisode> episodes = await provider.episodes(series);
       if (episodes.isEmpty) {
-        throw const ProviderException(
-          'This source returned no episodes for the title.',
-          isRetryable: false,
+        throw ProviderNotFound(
+          providerId: provider.id,
+          message: 'This source returned no episodes for the title.',
         );
       }
       final ProviderEpisode episode = episodes.firstWhere(
@@ -190,7 +213,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _loading = false;
       });
       await _session.setRate(_rate);
-    } on ProviderException catch (error) {
+    } on ProviderFailure catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error;
@@ -856,9 +879,10 @@ class _PlayerError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String message = error is ProviderException
-        ? (error as ProviderException).message
-        : error.toString();
+    final Object value = error;
+    final String message = value is ProviderFailure
+        ? value.message
+        : value.toString();
     return ColoredBox(
       color: AppColors.background.withValues(alpha: 0.92),
       child: Center(

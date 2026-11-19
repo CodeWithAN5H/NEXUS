@@ -1,4 +1,5 @@
 import '../../data/models/anime.dart';
+import '../providers/provider_failure.dart';
 import 'streaming_provider.dart';
 
 /// A built-in provider that exposes *test media only*.
@@ -11,7 +12,7 @@ import 'streaming_provider.dart';
 ///
 /// Replacing this with an authorised provider is a matter of registering another
 /// [StreamingProvider] — no screen needs to change.
-class SamplePlaybackProvider implements StreamingProvider {
+class SamplePlaybackProvider extends StreamingProvider {
   const SamplePlaybackProvider();
 
   static const String providerId = 'sample';
@@ -31,6 +32,9 @@ class SamplePlaybackProvider implements StreamingProvider {
 
   @override
   String get name => 'Playback Test Library';
+
+  @override
+  String get version => '1.0.0';
 
   @override
   String get description =>
@@ -53,22 +57,30 @@ class SamplePlaybackProvider implements StreamingProvider {
     ProviderCapability.audioTracks,
   };
 
+  /// No timers, no client, nothing to release — disposal is intentionally a
+  /// no-op, and is safe to call twice.
   @override
-  ProviderStatus get status => const ProviderStatus(
+  Future<void> dispose() async {}
+
+  /// The sample library is local and always available; probing performs no
+  /// network request and cannot fail.
+  @override
+  Future<ProviderStatusSnapshot> probe() async => ProviderStatusSnapshot(
     availability: ProviderAvailability.limited,
     message: 'Ready — test streams only, no anime content.',
+    observedAt: DateTime.now(),
     actionHint: 'Open the test library from Settings → Sources.',
   );
 
   /// The demo series shown when the test library is opened.
-  ProviderSeries get testLibrary => ProviderSeries(
+  ProviderSeries get testLibrary => const ProviderSeries(
     providerId: providerId,
     seriesId: testLibrarySeriesId,
     title: 'NEXUS Playback Tests',
     synopsis:
         'Two public example streams used to verify the player on Android and '
         'Windows. Neither is an anime episode.',
-    seasons: const <ProviderSeason>[
+    seasons: <ProviderSeason>[
       ProviderSeason(
         seriesId: testLibrarySeriesId,
         seasonId: seasonId,
@@ -104,7 +116,7 @@ class SamplePlaybackProvider implements StreamingProvider {
   ];
 
   @override
-  Future<List<ProviderSeries>> search(String query) async {
+  Future<List<ProviderSeries>> search(String query, {int page = 1}) async {
     final String needle = query.trim().toLowerCase();
     final ProviderSeries series = testLibrary;
     if (needle.isEmpty || series.title.toLowerCase().contains(needle)) {
@@ -142,7 +154,10 @@ class SamplePlaybackProvider implements StreamingProvider {
     ProviderEpisode episode,
   ) async {
     if (series.seriesId != testLibrarySeriesId) {
-      throw const ProviderException('Unknown series for this provider.');
+      throw const ProviderNotFound(
+        providerId: providerId,
+        message: 'Unknown series for this source.',
+      );
     }
     switch (episode.episodeId) {
       case 'bipbop':
@@ -200,9 +215,9 @@ class SamplePlaybackProvider implements StreamingProvider {
           ],
         );
       default:
-        throw const ProviderException(
-          'This episode has no stream.',
-          isRetryable: false,
+        throw const ProviderNotFound(
+          providerId: providerId,
+          message: 'This episode has no stream.',
         );
     }
   }

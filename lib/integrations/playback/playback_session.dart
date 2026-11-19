@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../providers/provider_failure.dart';
 import '../streaming/streaming_provider.dart';
 
 /// The app's playback abstraction.
@@ -56,9 +57,9 @@ class PlaybackSession {
       preferredHeight: preferredHeight,
     );
     if (variant == null) {
-      throw const ProviderException(
-        'This source returned no playable stream for the episode.',
-        isRetryable: false,
+      throw const ProviderInvalidStream(
+        providerId: 'playback',
+        message: 'This source returned no playable stream for the episode.',
       );
     }
 

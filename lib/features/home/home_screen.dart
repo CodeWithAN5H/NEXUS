@@ -20,7 +20,7 @@ import '../../data/models/explore_filter.dart';
 import '../../data/models/library.dart';
 import '../../data/providers/app_providers.dart';
 import '../../data/providers/content_providers.dart';
-import '../../integrations/anilist/anilist_client.dart';
+import '../../data/models/media_page.dart';
 import '../player/playback_request.dart';
 
 /// Discovery home: featured title, resume rail and curated metadata rails.

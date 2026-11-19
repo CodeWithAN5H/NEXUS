@@ -1,8 +1,8 @@
 # NEXUS — Project Status
 
 **Last updated:** 2026-11-19
-**Milestone:** v0.1.0-alpha shipped in `main`; release pending signing secrets — v0.2 preparation complete
-**Latest change:** provider manifest format (v1) frozen with a JSON Schema, contract test matrix, security review and a sequenced v0.2 plan — documentation only, no source, schema, UI, dependency or workflow change (§8, §9)
+**Milestone:** v0.2.0-alpha.1 — provider platform foundation (2.1a, 2.1b, 2.2a, 2.1c) implemented, migrated and verified locally; **signed release still pending the release keystore**
+**Latest change:** two provider kinds, three axes with one derived state, sealed `ProviderFailure`, `probe()`/`dispose()`, AniList behind `MetadataProvider`, additive schema v2 proven against a committed v1 database, and a resolver that collects every matching source (§11)
 **Source of truth:** https://github.com/CodeWithAN5H/NEXUS (branch `main`)
 **Application id:** `app.nexus` — confirmed permanent 2026-11-17
 
@@ -64,6 +64,10 @@ No system-wide software was installed (no root available). Everything lives unde
 ---
 
 ## 3. Verification results
+
+> This table records the **v0.1.0-alpha** build. Verification for
+> **v0.2.0-alpha.1** is in §11, including the schema migration and the 144-test
+> suite.
 
 | Check | Command | Result |
 |---|---|---|
@@ -135,13 +139,13 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 
 ## 6. Next actions
 
-**Immediate (v0.2.0-alpha)** — the sequence, dependencies and per-milestone completion criteria are in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). The next code to write is milestone 2.1a; nothing in v0.2 has been implemented.
+**Immediate (v0.2.0-alpha)** — the sequence, dependencies and per-milestone completion criteria are in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). Milestones **2.1a, 2.1b, 2.2a and 2.1c are complete** (§11); the next code to write is **2.2b**, gated on decision D2.
 
-0. Install the v0.1.0-alpha APK on a real Android device; verify launch, rails, search, details, library persistence and playback of the test streams. Record results here. (Still blocked: no device — decision D6.)
-1. **2.1a** contract, descriptor envelope, three axes, `probe()`/`dispose()`, sealed `ProviderFailure`.
-2. **2.1b** `MetadataProvider` split; AniList stops being a special case.
-3. **2.2a** provider store + additive schema v2 ([DATABASE.md](DATABASE.md) §6).
-4. **2.1c** collect-all resolution, priority, per-title preference → first `v0.2.0-alpha.1` build.
+0. Install the v0.2.0-alpha.1 APK on a real Android device; verify launch, rails, search, details, library persistence, the migrated database and playback of the test streams. Record results here. (Still blocked: no device — decision D6.)
+1. ~~**2.1a** contract, descriptor envelope, three axes, `probe()`/`dispose()`, sealed `ProviderFailure`.~~ ✅ §11
+2. ~~**2.1b** `MetadataProvider` split; AniList stops being a special case.~~ ✅ §11
+3. ~~**2.2a** provider store + additive schema v2 ([DATABASE.md](DATABASE.md) §6).~~ ✅ §11
+4. ~~**2.1c** collect-all resolution, priority, per-title preference.~~ ✅ §11 — release waiting on signing
 5. **2.2b** manifest validator and interpreter ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md)); **2.2c** lifecycle and configuration; **2.2d** Sources states, import review and diagnostics.
 6. **2.3a** register the owner's authorised provider; **2.3b** real episode lists and provider subtitles (blocked on decision D1).
 7. **2.4a** Explore pagination; **2.4b** AniList `streamingEpisodes` and air dates merged into the Episodes tab.
@@ -333,5 +337,86 @@ Expected output: `PASS` for both valid examples and for all four `invalid-*`
 files (they are expected to fail validation), no `BROKEN` lines, and no
 whitespace errors from `git diff --check`.
 
-`flutter analyze` and `flutter test` are deliberately not part of this check: they
-cover Dart code, and this revision changed none.
+`flutter analyze` and `flutter test` are deliberately not part of that check: it
+covered a documentation-only revision.
+
+---
+
+## 11. v0.2.0-alpha.1 — provider platform foundation (implemented 2026-11-19)
+
+Milestones **2.1a, 2.1b, 2.2a and 2.1c** of
+[docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). Application id `app.nexus`, the signing
+identity and every existing user row are unchanged. The declarative manifest
+tier (2.2b–2.2d) and real content (2.3a/2.3b) are deliberately **not** in this
+change.
+
+### What shipped
+
+| Area | Result |
+|---|---|
+| Provider kinds | `ProviderDescriptor` envelope + `StreamingProvider` and `MetadataProvider` contracts; separate registries; compatibility evaluated once at registration |
+| Three axes | `ProviderCompatibility`, `ProviderConfigurationState`, `ProviderAvailability` plus one derived `ProviderPresentationState` (6 states) |
+| Lifecycle | `probe()` → timestamped `ProviderStatusSnapshot`; mandatory idempotent `dispose()` |
+| Failures | Sealed `ProviderFailure`, 13 subtypes, stable codes, `AppFailure` mapping; `ProviderException` removed |
+| Metadata | `AniListMetadataProvider`; `MetadataRepository` depends on the interface; `MediaPage` is provider-neutral; no `AniListClient` import outside `lib/integrations/anilist/` (test-enforced) |
+| Resolution | `ProviderResolver`: all matches, stored priority, per-title preference, 4-probe cap, 2-minute match TTL, typed per-provider failures |
+| Persistence | Schema v2 (`provider_entries`, `provider_title_prefs`, `provider_manifests`), `ProviderStore`, 1 → 2 migration backfilled from `sources.enabled` |
+| Details screen | Source chooser when several providers match; the choice is saved as the per-title preference; collapsible source-error line |
+| Player | A resume hint whose provider is gone re-resolves the title; every error is a `ProviderFailure` |
+| Sources screen | One derived chip per provider (Ready / Test content only / Setup required / Sign-in rejected / Incompatible / Temporarily unavailable / Off), still the existing card |
+
+### Database migration
+
+Source: `test/fixtures/nexus_v1.sqlite`, a real database written by v0.1.0-alpha
+and committed unchanged. On open, `onUpgrade(1 → 2)` creates three tables,
+backfills `provider_entries` from `sources.enabled`, and bumps
+`PRAGMA user_version` to 2. `PRAGMA foreign_keys` stays on. No v1 table or column
+is altered.
+
+`test/providers/provider_store_test.dart` proves: tables exist, `user_version = 2`,
+the library row (watched 7/28), the 7 m 12 s position, all settings and both search
+rows are intact; reopening does not duplicate rows; new data written after the
+upgrade survives another restart; removing a provider leaves library, history and
+settings byte-identical.
+
+### Verification
+
+| Check | Command | Result |
+|---|---|---|
+| Formatting | `dart format --output=none --set-exit-if-changed lib test` | ✅ clean, 0 files changed |
+| Static analysis | `flutter analyze` | ✅ **No issues found!** |
+| Tests | `flutter test` | ✅ **144/144 passed** (79 v0.1 baseline + 65 new provider tests) |
+| Code generation | `dart run build_runner build` | ✅ Drift schema v2 generated |
+| Migration | `test/providers/provider_store_test.dart` | ✅ v1 fixture upgraded with every row preserved |
+| Release APK | `flutter build apk --release` | ✅ 109.9 MB universal APK, exit 0 |
+| Package identity | `aapt2 dump badging` | ✅ `app.nexus`, versionCode **2**, versionName **0.2.0-alpha.1**, minSdk 24, targetSdk 36 |
+| Signature | `apksigner verify --print-certs` | ⚠️ **Android Debug** certificate — no release keystore exists here; this APK must not be published |
+| APK checksum | `sha256sum` | `34bf2a4578af693f1d1a0a268a520713d686a22adfd4c66ad2f944481a3383de` |
+
+### Not verified (and why)
+
+| Item | Status | Reason |
+|---|---|---|
+| App launch and runtime behaviour | ❌ | No Android device or emulator (decision D6); the APK was built, not run |
+| Migration on a real installed app | ⚠️ | Proven against a committed v1 database file, not an installed upgrade |
+| Windows build | ❌ | No Windows/MSVC host (decision D5) |
+| Signed release and in-place update | ❌ | No release keystore or Actions secrets; `apksigner` reports the debug certificate |
+| Multi-source UI and source-error line | ⚠️ | Widget tree compiles and the resolver is tested; the screens were not rendered on a device |
+| 2.1c in-app reordering control | ❌ | Priority is stored, resolved and tested; the drag control ships in 2.2d |
+
+### Environment repairs made in this session
+
+Both were restored, not changed in the repository: the pub cache was truncated
+(`drift_dev` was missing `lib/src/backends/build/`), and the NDK was missing its
+`build/` toolchain directory because the checkpoint treats any `build` folder as
+rebuildable output. The NDK toolchain tree was re-extracted from the official
+r28c archive; dependencies were re-fetched from the lockfile. `build_runner` is
+pinned to 2.16.2 because the published 2.17.1 + build 5.0.0 pair is internally
+broken (dev tooling only).
+
+### Next milestone
+
+**2.2b — manifest validator and interpreter**, gated on decision **D2** (is the
+declarative tier in v0.2?) and **D3** (in-repo validator). Nothing else in 2.2 has
+started. `v0.2.0-alpha.1` cannot be published until the owner supplies the release
+keystore and the four Actions secrets.

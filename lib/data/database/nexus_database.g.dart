@@ -1974,6 +1974,1144 @@ class PreferenceEntriesCompanion extends UpdateCompanion<PreferenceRow> {
   }
 }
 
+class $ProviderEntriesTable extends ProviderEntries
+    with TableInfo<$ProviderEntriesTable, ProviderEntryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProviderEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _providerIdMeta = const VerificationMeta(
+    'providerId',
+  );
+  @override
+  late final GeneratedColumn<String> providerId = GeneratedColumn<String>(
+    'provider_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originMeta = const VerificationMeta('origin');
+  @override
+  late final GeneratedColumn<String> origin = GeneratedColumn<String>(
+    'origin',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('builtIn'),
+  );
+  static const VerificationMeta _manifestVersionMeta = const VerificationMeta(
+    'manifestVersion',
+  );
+  @override
+  late final GeneratedColumn<String> manifestVersion = GeneratedColumn<String>(
+    'manifest_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contractVersionMeta = const VerificationMeta(
+    'contractVersion',
+  );
+  @override
+  late final GeneratedColumn<int> contractVersion = GeneratedColumn<int>(
+    'contract_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _configJsonMeta = const VerificationMeta(
+    'configJson',
+  );
+  @override
+  late final GeneratedColumn<String> configJson = GeneratedColumn<String>(
+    'config_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _installedAtMeta = const VerificationMeta(
+    'installedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> installedAt = GeneratedColumn<DateTime>(
+    'installed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    providerId,
+    origin,
+    manifestVersion,
+    contractVersion,
+    enabled,
+    priority,
+    configJson,
+    installedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'provider_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ProviderEntryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('provider_id')) {
+      context.handle(
+        _providerIdMeta,
+        providerId.isAcceptableOrUnknown(data['provider_id']!, _providerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_providerIdMeta);
+    }
+    if (data.containsKey('origin')) {
+      context.handle(
+        _originMeta,
+        origin.isAcceptableOrUnknown(data['origin']!, _originMeta),
+      );
+    }
+    if (data.containsKey('manifest_version')) {
+      context.handle(
+        _manifestVersionMeta,
+        manifestVersion.isAcceptableOrUnknown(
+          data['manifest_version']!,
+          _manifestVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('contract_version')) {
+      context.handle(
+        _contractVersionMeta,
+        contractVersion.isAcceptableOrUnknown(
+          data['contract_version']!,
+          _contractVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
+    if (data.containsKey('config_json')) {
+      context.handle(
+        _configJsonMeta,
+        configJson.isAcceptableOrUnknown(data['config_json']!, _configJsonMeta),
+      );
+    }
+    if (data.containsKey('installed_at')) {
+      context.handle(
+        _installedAtMeta,
+        installedAt.isAcceptableOrUnknown(
+          data['installed_at']!,
+          _installedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {providerId};
+  @override
+  ProviderEntryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ProviderEntryRow(
+      providerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}provider_id'],
+      )!,
+      origin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin'],
+      )!,
+      manifestVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}manifest_version'],
+      ),
+      contractVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}contract_version'],
+      ),
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}priority'],
+      )!,
+      configJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}config_json'],
+      )!,
+      installedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}installed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ProviderEntriesTable createAlias(String alias) {
+    return $ProviderEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class ProviderEntryRow extends DataClass
+    implements Insertable<ProviderEntryRow> {
+  final String providerId;
+  final String origin;
+  final String? manifestVersion;
+  final int? contractVersion;
+  final bool enabled;
+  final int priority;
+  final String configJson;
+  final DateTime installedAt;
+  const ProviderEntryRow({
+    required this.providerId,
+    required this.origin,
+    this.manifestVersion,
+    this.contractVersion,
+    required this.enabled,
+    required this.priority,
+    required this.configJson,
+    required this.installedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['provider_id'] = Variable<String>(providerId);
+    map['origin'] = Variable<String>(origin);
+    if (!nullToAbsent || manifestVersion != null) {
+      map['manifest_version'] = Variable<String>(manifestVersion);
+    }
+    if (!nullToAbsent || contractVersion != null) {
+      map['contract_version'] = Variable<int>(contractVersion);
+    }
+    map['enabled'] = Variable<bool>(enabled);
+    map['priority'] = Variable<int>(priority);
+    map['config_json'] = Variable<String>(configJson);
+    map['installed_at'] = Variable<DateTime>(installedAt);
+    return map;
+  }
+
+  ProviderEntriesCompanion toCompanion(bool nullToAbsent) {
+    return ProviderEntriesCompanion(
+      providerId: Value(providerId),
+      origin: Value(origin),
+      manifestVersion: manifestVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manifestVersion),
+      contractVersion: contractVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contractVersion),
+      enabled: Value(enabled),
+      priority: Value(priority),
+      configJson: Value(configJson),
+      installedAt: Value(installedAt),
+    );
+  }
+
+  factory ProviderEntryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ProviderEntryRow(
+      providerId: serializer.fromJson<String>(json['providerId']),
+      origin: serializer.fromJson<String>(json['origin']),
+      manifestVersion: serializer.fromJson<String?>(json['manifestVersion']),
+      contractVersion: serializer.fromJson<int?>(json['contractVersion']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      priority: serializer.fromJson<int>(json['priority']),
+      configJson: serializer.fromJson<String>(json['configJson']),
+      installedAt: serializer.fromJson<DateTime>(json['installedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'providerId': serializer.toJson<String>(providerId),
+      'origin': serializer.toJson<String>(origin),
+      'manifestVersion': serializer.toJson<String?>(manifestVersion),
+      'contractVersion': serializer.toJson<int?>(contractVersion),
+      'enabled': serializer.toJson<bool>(enabled),
+      'priority': serializer.toJson<int>(priority),
+      'configJson': serializer.toJson<String>(configJson),
+      'installedAt': serializer.toJson<DateTime>(installedAt),
+    };
+  }
+
+  ProviderEntryRow copyWith({
+    String? providerId,
+    String? origin,
+    Value<String?> manifestVersion = const Value.absent(),
+    Value<int?> contractVersion = const Value.absent(),
+    bool? enabled,
+    int? priority,
+    String? configJson,
+    DateTime? installedAt,
+  }) => ProviderEntryRow(
+    providerId: providerId ?? this.providerId,
+    origin: origin ?? this.origin,
+    manifestVersion: manifestVersion.present
+        ? manifestVersion.value
+        : this.manifestVersion,
+    contractVersion: contractVersion.present
+        ? contractVersion.value
+        : this.contractVersion,
+    enabled: enabled ?? this.enabled,
+    priority: priority ?? this.priority,
+    configJson: configJson ?? this.configJson,
+    installedAt: installedAt ?? this.installedAt,
+  );
+  ProviderEntryRow copyWithCompanion(ProviderEntriesCompanion data) {
+    return ProviderEntryRow(
+      providerId: data.providerId.present
+          ? data.providerId.value
+          : this.providerId,
+      origin: data.origin.present ? data.origin.value : this.origin,
+      manifestVersion: data.manifestVersion.present
+          ? data.manifestVersion.value
+          : this.manifestVersion,
+      contractVersion: data.contractVersion.present
+          ? data.contractVersion.value
+          : this.contractVersion,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      configJson: data.configJson.present
+          ? data.configJson.value
+          : this.configJson,
+      installedAt: data.installedAt.present
+          ? data.installedAt.value
+          : this.installedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProviderEntryRow(')
+          ..write('providerId: $providerId, ')
+          ..write('origin: $origin, ')
+          ..write('manifestVersion: $manifestVersion, ')
+          ..write('contractVersion: $contractVersion, ')
+          ..write('enabled: $enabled, ')
+          ..write('priority: $priority, ')
+          ..write('configJson: $configJson, ')
+          ..write('installedAt: $installedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    providerId,
+    origin,
+    manifestVersion,
+    contractVersion,
+    enabled,
+    priority,
+    configJson,
+    installedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ProviderEntryRow &&
+          other.providerId == this.providerId &&
+          other.origin == this.origin &&
+          other.manifestVersion == this.manifestVersion &&
+          other.contractVersion == this.contractVersion &&
+          other.enabled == this.enabled &&
+          other.priority == this.priority &&
+          other.configJson == this.configJson &&
+          other.installedAt == this.installedAt);
+}
+
+class ProviderEntriesCompanion extends UpdateCompanion<ProviderEntryRow> {
+  final Value<String> providerId;
+  final Value<String> origin;
+  final Value<String?> manifestVersion;
+  final Value<int?> contractVersion;
+  final Value<bool> enabled;
+  final Value<int> priority;
+  final Value<String> configJson;
+  final Value<DateTime> installedAt;
+  final Value<int> rowid;
+  const ProviderEntriesCompanion({
+    this.providerId = const Value.absent(),
+    this.origin = const Value.absent(),
+    this.manifestVersion = const Value.absent(),
+    this.contractVersion = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.configJson = const Value.absent(),
+    this.installedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProviderEntriesCompanion.insert({
+    required String providerId,
+    this.origin = const Value.absent(),
+    this.manifestVersion = const Value.absent(),
+    this.contractVersion = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.configJson = const Value.absent(),
+    this.installedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : providerId = Value(providerId);
+  static Insertable<ProviderEntryRow> custom({
+    Expression<String>? providerId,
+    Expression<String>? origin,
+    Expression<String>? manifestVersion,
+    Expression<int>? contractVersion,
+    Expression<bool>? enabled,
+    Expression<int>? priority,
+    Expression<String>? configJson,
+    Expression<DateTime>? installedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (providerId != null) 'provider_id': providerId,
+      if (origin != null) 'origin': origin,
+      if (manifestVersion != null) 'manifest_version': manifestVersion,
+      if (contractVersion != null) 'contract_version': contractVersion,
+      if (enabled != null) 'enabled': enabled,
+      if (priority != null) 'priority': priority,
+      if (configJson != null) 'config_json': configJson,
+      if (installedAt != null) 'installed_at': installedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProviderEntriesCompanion copyWith({
+    Value<String>? providerId,
+    Value<String>? origin,
+    Value<String?>? manifestVersion,
+    Value<int?>? contractVersion,
+    Value<bool>? enabled,
+    Value<int>? priority,
+    Value<String>? configJson,
+    Value<DateTime>? installedAt,
+    Value<int>? rowid,
+  }) {
+    return ProviderEntriesCompanion(
+      providerId: providerId ?? this.providerId,
+      origin: origin ?? this.origin,
+      manifestVersion: manifestVersion ?? this.manifestVersion,
+      contractVersion: contractVersion ?? this.contractVersion,
+      enabled: enabled ?? this.enabled,
+      priority: priority ?? this.priority,
+      configJson: configJson ?? this.configJson,
+      installedAt: installedAt ?? this.installedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (providerId.present) {
+      map['provider_id'] = Variable<String>(providerId.value);
+    }
+    if (origin.present) {
+      map['origin'] = Variable<String>(origin.value);
+    }
+    if (manifestVersion.present) {
+      map['manifest_version'] = Variable<String>(manifestVersion.value);
+    }
+    if (contractVersion.present) {
+      map['contract_version'] = Variable<int>(contractVersion.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
+    if (configJson.present) {
+      map['config_json'] = Variable<String>(configJson.value);
+    }
+    if (installedAt.present) {
+      map['installed_at'] = Variable<DateTime>(installedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProviderEntriesCompanion(')
+          ..write('providerId: $providerId, ')
+          ..write('origin: $origin, ')
+          ..write('manifestVersion: $manifestVersion, ')
+          ..write('contractVersion: $contractVersion, ')
+          ..write('enabled: $enabled, ')
+          ..write('priority: $priority, ')
+          ..write('configJson: $configJson, ')
+          ..write('installedAt: $installedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ProviderTitlePrefsTable extends ProviderTitlePrefs
+    with TableInfo<$ProviderTitlePrefsTable, ProviderTitlePrefRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProviderTitlePrefsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _animeIdMeta = const VerificationMeta(
+    'animeId',
+  );
+  @override
+  late final GeneratedColumn<int> animeId = GeneratedColumn<int>(
+    'anime_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _providerIdMeta = const VerificationMeta(
+    'providerId',
+  );
+  @override
+  late final GeneratedColumn<String> providerId = GeneratedColumn<String>(
+    'provider_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [animeId, providerId, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'provider_title_prefs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ProviderTitlePrefRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('anime_id')) {
+      context.handle(
+        _animeIdMeta,
+        animeId.isAcceptableOrUnknown(data['anime_id']!, _animeIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_animeIdMeta);
+    }
+    if (data.containsKey('provider_id')) {
+      context.handle(
+        _providerIdMeta,
+        providerId.isAcceptableOrUnknown(data['provider_id']!, _providerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_providerIdMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {animeId, providerId};
+  @override
+  ProviderTitlePrefRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ProviderTitlePrefRow(
+      animeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}anime_id'],
+      )!,
+      providerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}provider_id'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ProviderTitlePrefsTable createAlias(String alias) {
+    return $ProviderTitlePrefsTable(attachedDatabase, alias);
+  }
+}
+
+class ProviderTitlePrefRow extends DataClass
+    implements Insertable<ProviderTitlePrefRow> {
+  final int animeId;
+  final String providerId;
+  final DateTime updatedAt;
+  const ProviderTitlePrefRow({
+    required this.animeId,
+    required this.providerId,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['anime_id'] = Variable<int>(animeId);
+    map['provider_id'] = Variable<String>(providerId);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ProviderTitlePrefsCompanion toCompanion(bool nullToAbsent) {
+    return ProviderTitlePrefsCompanion(
+      animeId: Value(animeId),
+      providerId: Value(providerId),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ProviderTitlePrefRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ProviderTitlePrefRow(
+      animeId: serializer.fromJson<int>(json['animeId']),
+      providerId: serializer.fromJson<String>(json['providerId']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'animeId': serializer.toJson<int>(animeId),
+      'providerId': serializer.toJson<String>(providerId),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ProviderTitlePrefRow copyWith({
+    int? animeId,
+    String? providerId,
+    DateTime? updatedAt,
+  }) => ProviderTitlePrefRow(
+    animeId: animeId ?? this.animeId,
+    providerId: providerId ?? this.providerId,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ProviderTitlePrefRow copyWithCompanion(ProviderTitlePrefsCompanion data) {
+    return ProviderTitlePrefRow(
+      animeId: data.animeId.present ? data.animeId.value : this.animeId,
+      providerId: data.providerId.present
+          ? data.providerId.value
+          : this.providerId,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProviderTitlePrefRow(')
+          ..write('animeId: $animeId, ')
+          ..write('providerId: $providerId, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(animeId, providerId, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ProviderTitlePrefRow &&
+          other.animeId == this.animeId &&
+          other.providerId == this.providerId &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ProviderTitlePrefsCompanion
+    extends UpdateCompanion<ProviderTitlePrefRow> {
+  final Value<int> animeId;
+  final Value<String> providerId;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ProviderTitlePrefsCompanion({
+    this.animeId = const Value.absent(),
+    this.providerId = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProviderTitlePrefsCompanion.insert({
+    required int animeId,
+    required String providerId,
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : animeId = Value(animeId),
+       providerId = Value(providerId);
+  static Insertable<ProviderTitlePrefRow> custom({
+    Expression<int>? animeId,
+    Expression<String>? providerId,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (animeId != null) 'anime_id': animeId,
+      if (providerId != null) 'provider_id': providerId,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProviderTitlePrefsCompanion copyWith({
+    Value<int>? animeId,
+    Value<String>? providerId,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ProviderTitlePrefsCompanion(
+      animeId: animeId ?? this.animeId,
+      providerId: providerId ?? this.providerId,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (animeId.present) {
+      map['anime_id'] = Variable<int>(animeId.value);
+    }
+    if (providerId.present) {
+      map['provider_id'] = Variable<String>(providerId.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProviderTitlePrefsCompanion(')
+          ..write('animeId: $animeId, ')
+          ..write('providerId: $providerId, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ProviderManifestsTable extends ProviderManifests
+    with TableInfo<$ProviderManifestsTable, ProviderManifestRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProviderManifestsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _providerIdMeta = const VerificationMeta(
+    'providerId',
+  );
+  @override
+  late final GeneratedColumn<String> providerId = GeneratedColumn<String>(
+    'provider_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _manifestJsonMeta = const VerificationMeta(
+    'manifestJson',
+  );
+  @override
+  late final GeneratedColumn<String> manifestJson = GeneratedColumn<String>(
+    'manifest_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceUrlMeta = const VerificationMeta(
+    'sourceUrl',
+  );
+  @override
+  late final GeneratedColumn<String> sourceUrl = GeneratedColumn<String>(
+    'source_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _installedAtMeta = const VerificationMeta(
+    'installedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> installedAt = GeneratedColumn<DateTime>(
+    'installed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    providerId,
+    manifestJson,
+    sourceUrl,
+    installedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'provider_manifests';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ProviderManifestRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('provider_id')) {
+      context.handle(
+        _providerIdMeta,
+        providerId.isAcceptableOrUnknown(data['provider_id']!, _providerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_providerIdMeta);
+    }
+    if (data.containsKey('manifest_json')) {
+      context.handle(
+        _manifestJsonMeta,
+        manifestJson.isAcceptableOrUnknown(
+          data['manifest_json']!,
+          _manifestJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_manifestJsonMeta);
+    }
+    if (data.containsKey('source_url')) {
+      context.handle(
+        _sourceUrlMeta,
+        sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta),
+      );
+    }
+    if (data.containsKey('installed_at')) {
+      context.handle(
+        _installedAtMeta,
+        installedAt.isAcceptableOrUnknown(
+          data['installed_at']!,
+          _installedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {providerId};
+  @override
+  ProviderManifestRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ProviderManifestRow(
+      providerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}provider_id'],
+      )!,
+      manifestJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}manifest_json'],
+      )!,
+      sourceUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_url'],
+      ),
+      installedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}installed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ProviderManifestsTable createAlias(String alias) {
+    return $ProviderManifestsTable(attachedDatabase, alias);
+  }
+}
+
+class ProviderManifestRow extends DataClass
+    implements Insertable<ProviderManifestRow> {
+  final String providerId;
+  final String manifestJson;
+  final String? sourceUrl;
+  final DateTime installedAt;
+  const ProviderManifestRow({
+    required this.providerId,
+    required this.manifestJson,
+    this.sourceUrl,
+    required this.installedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['provider_id'] = Variable<String>(providerId);
+    map['manifest_json'] = Variable<String>(manifestJson);
+    if (!nullToAbsent || sourceUrl != null) {
+      map['source_url'] = Variable<String>(sourceUrl);
+    }
+    map['installed_at'] = Variable<DateTime>(installedAt);
+    return map;
+  }
+
+  ProviderManifestsCompanion toCompanion(bool nullToAbsent) {
+    return ProviderManifestsCompanion(
+      providerId: Value(providerId),
+      manifestJson: Value(manifestJson),
+      sourceUrl: sourceUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceUrl),
+      installedAt: Value(installedAt),
+    );
+  }
+
+  factory ProviderManifestRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ProviderManifestRow(
+      providerId: serializer.fromJson<String>(json['providerId']),
+      manifestJson: serializer.fromJson<String>(json['manifestJson']),
+      sourceUrl: serializer.fromJson<String?>(json['sourceUrl']),
+      installedAt: serializer.fromJson<DateTime>(json['installedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'providerId': serializer.toJson<String>(providerId),
+      'manifestJson': serializer.toJson<String>(manifestJson),
+      'sourceUrl': serializer.toJson<String?>(sourceUrl),
+      'installedAt': serializer.toJson<DateTime>(installedAt),
+    };
+  }
+
+  ProviderManifestRow copyWith({
+    String? providerId,
+    String? manifestJson,
+    Value<String?> sourceUrl = const Value.absent(),
+    DateTime? installedAt,
+  }) => ProviderManifestRow(
+    providerId: providerId ?? this.providerId,
+    manifestJson: manifestJson ?? this.manifestJson,
+    sourceUrl: sourceUrl.present ? sourceUrl.value : this.sourceUrl,
+    installedAt: installedAt ?? this.installedAt,
+  );
+  ProviderManifestRow copyWithCompanion(ProviderManifestsCompanion data) {
+    return ProviderManifestRow(
+      providerId: data.providerId.present
+          ? data.providerId.value
+          : this.providerId,
+      manifestJson: data.manifestJson.present
+          ? data.manifestJson.value
+          : this.manifestJson,
+      sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      installedAt: data.installedAt.present
+          ? data.installedAt.value
+          : this.installedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProviderManifestRow(')
+          ..write('providerId: $providerId, ')
+          ..write('manifestJson: $manifestJson, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('installedAt: $installedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(providerId, manifestJson, sourceUrl, installedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ProviderManifestRow &&
+          other.providerId == this.providerId &&
+          other.manifestJson == this.manifestJson &&
+          other.sourceUrl == this.sourceUrl &&
+          other.installedAt == this.installedAt);
+}
+
+class ProviderManifestsCompanion extends UpdateCompanion<ProviderManifestRow> {
+  final Value<String> providerId;
+  final Value<String> manifestJson;
+  final Value<String?> sourceUrl;
+  final Value<DateTime> installedAt;
+  final Value<int> rowid;
+  const ProviderManifestsCompanion({
+    this.providerId = const Value.absent(),
+    this.manifestJson = const Value.absent(),
+    this.sourceUrl = const Value.absent(),
+    this.installedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProviderManifestsCompanion.insert({
+    required String providerId,
+    required String manifestJson,
+    this.sourceUrl = const Value.absent(),
+    this.installedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : providerId = Value(providerId),
+       manifestJson = Value(manifestJson);
+  static Insertable<ProviderManifestRow> custom({
+    Expression<String>? providerId,
+    Expression<String>? manifestJson,
+    Expression<String>? sourceUrl,
+    Expression<DateTime>? installedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (providerId != null) 'provider_id': providerId,
+      if (manifestJson != null) 'manifest_json': manifestJson,
+      if (sourceUrl != null) 'source_url': sourceUrl,
+      if (installedAt != null) 'installed_at': installedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProviderManifestsCompanion copyWith({
+    Value<String>? providerId,
+    Value<String>? manifestJson,
+    Value<String?>? sourceUrl,
+    Value<DateTime>? installedAt,
+    Value<int>? rowid,
+  }) {
+    return ProviderManifestsCompanion(
+      providerId: providerId ?? this.providerId,
+      manifestJson: manifestJson ?? this.manifestJson,
+      sourceUrl: sourceUrl ?? this.sourceUrl,
+      installedAt: installedAt ?? this.installedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (providerId.present) {
+      map['provider_id'] = Variable<String>(providerId.value);
+    }
+    if (manifestJson.present) {
+      map['manifest_json'] = Variable<String>(manifestJson.value);
+    }
+    if (sourceUrl.present) {
+      map['source_url'] = Variable<String>(sourceUrl.value);
+    }
+    if (installedAt.present) {
+      map['installed_at'] = Variable<DateTime>(installedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProviderManifestsCompanion(')
+          ..write('providerId: $providerId, ')
+          ..write('manifestJson: $manifestJson, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('installedAt: $installedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$NexusDatabase extends GeneratedDatabase {
   _$NexusDatabase(QueryExecutor e) : super(e);
   $NexusDatabaseManager get managers => $NexusDatabaseManager(this);
@@ -1984,6 +3122,13 @@ abstract class _$NexusDatabase extends GeneratedDatabase {
   late final $RecentSearchesTable recentSearches = $RecentSearchesTable(this);
   late final $PreferenceEntriesTable preferenceEntries =
       $PreferenceEntriesTable(this);
+  late final $ProviderEntriesTable providerEntries = $ProviderEntriesTable(
+    this,
+  );
+  late final $ProviderTitlePrefsTable providerTitlePrefs =
+      $ProviderTitlePrefsTable(this);
+  late final $ProviderManifestsTable providerManifests =
+      $ProviderManifestsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1993,6 +3138,9 @@ abstract class _$NexusDatabase extends GeneratedDatabase {
     progressEntries,
     recentSearches,
     preferenceEntries,
+    providerEntries,
+    providerTitlePrefs,
+    providerManifests,
   ];
 }
 
@@ -3061,6 +4209,691 @@ typedef $$PreferenceEntriesTableProcessedTableManager =
       PreferenceRow,
       PrefetchHooks Function()
     >;
+typedef $$ProviderEntriesTableCreateCompanionBuilder =
+    ProviderEntriesCompanion Function({
+      required String providerId,
+      Value<String> origin,
+      Value<String?> manifestVersion,
+      Value<int?> contractVersion,
+      Value<bool> enabled,
+      Value<int> priority,
+      Value<String> configJson,
+      Value<DateTime> installedAt,
+      Value<int> rowid,
+    });
+typedef $$ProviderEntriesTableUpdateCompanionBuilder =
+    ProviderEntriesCompanion Function({
+      Value<String> providerId,
+      Value<String> origin,
+      Value<String?> manifestVersion,
+      Value<int?> contractVersion,
+      Value<bool> enabled,
+      Value<int> priority,
+      Value<String> configJson,
+      Value<DateTime> installedAt,
+      Value<int> rowid,
+    });
+
+class $$ProviderEntriesTableFilterComposer
+    extends Composer<_$NexusDatabase, $ProviderEntriesTable> {
+  $$ProviderEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get providerId => $composableBuilder(
+    column: $table.providerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get manifestVersion => $composableBuilder(
+    column: $table.manifestVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get contractVersion => $composableBuilder(
+    column: $table.contractVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get configJson => $composableBuilder(
+    column: $table.configJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get installedAt => $composableBuilder(
+    column: $table.installedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ProviderEntriesTableOrderingComposer
+    extends Composer<_$NexusDatabase, $ProviderEntriesTable> {
+  $$ProviderEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get providerId => $composableBuilder(
+    column: $table.providerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get manifestVersion => $composableBuilder(
+    column: $table.manifestVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get contractVersion => $composableBuilder(
+    column: $table.contractVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get configJson => $composableBuilder(
+    column: $table.configJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get installedAt => $composableBuilder(
+    column: $table.installedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ProviderEntriesTableAnnotationComposer
+    extends Composer<_$NexusDatabase, $ProviderEntriesTable> {
+  $$ProviderEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get providerId => $composableBuilder(
+    column: $table.providerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get origin =>
+      $composableBuilder(column: $table.origin, builder: (column) => column);
+
+  GeneratedColumn<String> get manifestVersion => $composableBuilder(
+    column: $table.manifestVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get contractVersion => $composableBuilder(
+    column: $table.contractVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<String> get configJson => $composableBuilder(
+    column: $table.configJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get installedAt => $composableBuilder(
+    column: $table.installedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$ProviderEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$NexusDatabase,
+          $ProviderEntriesTable,
+          ProviderEntryRow,
+          $$ProviderEntriesTableFilterComposer,
+          $$ProviderEntriesTableOrderingComposer,
+          $$ProviderEntriesTableAnnotationComposer,
+          $$ProviderEntriesTableCreateCompanionBuilder,
+          $$ProviderEntriesTableUpdateCompanionBuilder,
+          (
+            ProviderEntryRow,
+            BaseReferences<
+              _$NexusDatabase,
+              $ProviderEntriesTable,
+              ProviderEntryRow
+            >,
+          ),
+          ProviderEntryRow,
+          PrefetchHooks Function()
+        > {
+  $$ProviderEntriesTableTableManager(
+    _$NexusDatabase db,
+    $ProviderEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProviderEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProviderEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ProviderEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> providerId = const Value.absent(),
+                Value<String> origin = const Value.absent(),
+                Value<String?> manifestVersion = const Value.absent(),
+                Value<int?> contractVersion = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<String> configJson = const Value.absent(),
+                Value<DateTime> installedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProviderEntriesCompanion(
+                providerId: providerId,
+                origin: origin,
+                manifestVersion: manifestVersion,
+                contractVersion: contractVersion,
+                enabled: enabled,
+                priority: priority,
+                configJson: configJson,
+                installedAt: installedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String providerId,
+                Value<String> origin = const Value.absent(),
+                Value<String?> manifestVersion = const Value.absent(),
+                Value<int?> contractVersion = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<String> configJson = const Value.absent(),
+                Value<DateTime> installedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProviderEntriesCompanion.insert(
+                providerId: providerId,
+                origin: origin,
+                manifestVersion: manifestVersion,
+                contractVersion: contractVersion,
+                enabled: enabled,
+                priority: priority,
+                configJson: configJson,
+                installedAt: installedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ProviderEntriesTable, ProviderEntryRow>(table),
+                  BaseReferences<
+                    _$NexusDatabase,
+                    $ProviderEntriesTable,
+                    ProviderEntryRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ProviderEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$NexusDatabase,
+      $ProviderEntriesTable,
+      ProviderEntryRow,
+      $$ProviderEntriesTableFilterComposer,
+      $$ProviderEntriesTableOrderingComposer,
+      $$ProviderEntriesTableAnnotationComposer,
+      $$ProviderEntriesTableCreateCompanionBuilder,
+      $$ProviderEntriesTableUpdateCompanionBuilder,
+      (
+        ProviderEntryRow,
+        BaseReferences<
+          _$NexusDatabase,
+          $ProviderEntriesTable,
+          ProviderEntryRow
+        >,
+      ),
+      ProviderEntryRow,
+      PrefetchHooks Function()
+    >;
+typedef $$ProviderTitlePrefsTableCreateCompanionBuilder =
+    ProviderTitlePrefsCompanion Function({
+      required int animeId,
+      required String providerId,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ProviderTitlePrefsTableUpdateCompanionBuilder =
+    ProviderTitlePrefsCompanion Function({
+      Value<int> animeId,
+      Value<String> providerId,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$ProviderTitlePrefsTableFilterComposer
+    extends Composer<_$NexusDatabase, $ProviderTitlePrefsTable> {
+  $$ProviderTitlePrefsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get animeId => $composableBuilder(
+    column: $table.animeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get providerId => $composableBuilder(
+    column: $table.providerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ProviderTitlePrefsTableOrderingComposer
+    extends Composer<_$NexusDatabase, $ProviderTitlePrefsTable> {
+  $$ProviderTitlePrefsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get animeId => $composableBuilder(
+    column: $table.animeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get providerId => $composableBuilder(
+    column: $table.providerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ProviderTitlePrefsTableAnnotationComposer
+    extends Composer<_$NexusDatabase, $ProviderTitlePrefsTable> {
+  $$ProviderTitlePrefsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get animeId =>
+      $composableBuilder(column: $table.animeId, builder: (column) => column);
+
+  GeneratedColumn<String> get providerId => $composableBuilder(
+    column: $table.providerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$ProviderTitlePrefsTableTableManager
+    extends
+        RootTableManager<
+          _$NexusDatabase,
+          $ProviderTitlePrefsTable,
+          ProviderTitlePrefRow,
+          $$ProviderTitlePrefsTableFilterComposer,
+          $$ProviderTitlePrefsTableOrderingComposer,
+          $$ProviderTitlePrefsTableAnnotationComposer,
+          $$ProviderTitlePrefsTableCreateCompanionBuilder,
+          $$ProviderTitlePrefsTableUpdateCompanionBuilder,
+          (
+            ProviderTitlePrefRow,
+            BaseReferences<
+              _$NexusDatabase,
+              $ProviderTitlePrefsTable,
+              ProviderTitlePrefRow
+            >,
+          ),
+          ProviderTitlePrefRow,
+          PrefetchHooks Function()
+        > {
+  $$ProviderTitlePrefsTableTableManager(
+    _$NexusDatabase db,
+    $ProviderTitlePrefsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProviderTitlePrefsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProviderTitlePrefsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ProviderTitlePrefsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> animeId = const Value.absent(),
+                Value<String> providerId = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProviderTitlePrefsCompanion(
+                animeId: animeId,
+                providerId: providerId,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int animeId,
+                required String providerId,
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProviderTitlePrefsCompanion.insert(
+                animeId: animeId,
+                providerId: providerId,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ProviderTitlePrefsTable, ProviderTitlePrefRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$NexusDatabase,
+                    $ProviderTitlePrefsTable,
+                    ProviderTitlePrefRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ProviderTitlePrefsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$NexusDatabase,
+      $ProviderTitlePrefsTable,
+      ProviderTitlePrefRow,
+      $$ProviderTitlePrefsTableFilterComposer,
+      $$ProviderTitlePrefsTableOrderingComposer,
+      $$ProviderTitlePrefsTableAnnotationComposer,
+      $$ProviderTitlePrefsTableCreateCompanionBuilder,
+      $$ProviderTitlePrefsTableUpdateCompanionBuilder,
+      (
+        ProviderTitlePrefRow,
+        BaseReferences<
+          _$NexusDatabase,
+          $ProviderTitlePrefsTable,
+          ProviderTitlePrefRow
+        >,
+      ),
+      ProviderTitlePrefRow,
+      PrefetchHooks Function()
+    >;
+typedef $$ProviderManifestsTableCreateCompanionBuilder =
+    ProviderManifestsCompanion Function({
+      required String providerId,
+      required String manifestJson,
+      Value<String?> sourceUrl,
+      Value<DateTime> installedAt,
+      Value<int> rowid,
+    });
+typedef $$ProviderManifestsTableUpdateCompanionBuilder =
+    ProviderManifestsCompanion Function({
+      Value<String> providerId,
+      Value<String> manifestJson,
+      Value<String?> sourceUrl,
+      Value<DateTime> installedAt,
+      Value<int> rowid,
+    });
+
+class $$ProviderManifestsTableFilterComposer
+    extends Composer<_$NexusDatabase, $ProviderManifestsTable> {
+  $$ProviderManifestsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get providerId => $composableBuilder(
+    column: $table.providerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get manifestJson => $composableBuilder(
+    column: $table.manifestJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get installedAt => $composableBuilder(
+    column: $table.installedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ProviderManifestsTableOrderingComposer
+    extends Composer<_$NexusDatabase, $ProviderManifestsTable> {
+  $$ProviderManifestsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get providerId => $composableBuilder(
+    column: $table.providerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get manifestJson => $composableBuilder(
+    column: $table.manifestJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get installedAt => $composableBuilder(
+    column: $table.installedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ProviderManifestsTableAnnotationComposer
+    extends Composer<_$NexusDatabase, $ProviderManifestsTable> {
+  $$ProviderManifestsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get providerId => $composableBuilder(
+    column: $table.providerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get manifestJson => $composableBuilder(
+    column: $table.manifestJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceUrl =>
+      $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get installedAt => $composableBuilder(
+    column: $table.installedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$ProviderManifestsTableTableManager
+    extends
+        RootTableManager<
+          _$NexusDatabase,
+          $ProviderManifestsTable,
+          ProviderManifestRow,
+          $$ProviderManifestsTableFilterComposer,
+          $$ProviderManifestsTableOrderingComposer,
+          $$ProviderManifestsTableAnnotationComposer,
+          $$ProviderManifestsTableCreateCompanionBuilder,
+          $$ProviderManifestsTableUpdateCompanionBuilder,
+          (
+            ProviderManifestRow,
+            BaseReferences<
+              _$NexusDatabase,
+              $ProviderManifestsTable,
+              ProviderManifestRow
+            >,
+          ),
+          ProviderManifestRow,
+          PrefetchHooks Function()
+        > {
+  $$ProviderManifestsTableTableManager(
+    _$NexusDatabase db,
+    $ProviderManifestsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProviderManifestsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProviderManifestsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ProviderManifestsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> providerId = const Value.absent(),
+                Value<String> manifestJson = const Value.absent(),
+                Value<String?> sourceUrl = const Value.absent(),
+                Value<DateTime> installedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProviderManifestsCompanion(
+                providerId: providerId,
+                manifestJson: manifestJson,
+                sourceUrl: sourceUrl,
+                installedAt: installedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String providerId,
+                required String manifestJson,
+                Value<String?> sourceUrl = const Value.absent(),
+                Value<DateTime> installedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProviderManifestsCompanion.insert(
+                providerId: providerId,
+                manifestJson: manifestJson,
+                sourceUrl: sourceUrl,
+                installedAt: installedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ProviderManifestsTable, ProviderManifestRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$NexusDatabase,
+                    $ProviderManifestsTable,
+                    ProviderManifestRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ProviderManifestsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$NexusDatabase,
+      $ProviderManifestsTable,
+      ProviderManifestRow,
+      $$ProviderManifestsTableFilterComposer,
+      $$ProviderManifestsTableOrderingComposer,
+      $$ProviderManifestsTableAnnotationComposer,
+      $$ProviderManifestsTableCreateCompanionBuilder,
+      $$ProviderManifestsTableUpdateCompanionBuilder,
+      (
+        ProviderManifestRow,
+        BaseReferences<
+          _$NexusDatabase,
+          $ProviderManifestsTable,
+          ProviderManifestRow
+        >,
+      ),
+      ProviderManifestRow,
+      PrefetchHooks Function()
+    >;
 
 class $NexusDatabaseManager {
   final _$NexusDatabase _db;
@@ -3073,4 +4906,10 @@ class $NexusDatabaseManager {
       $$RecentSearchesTableTableManager(_db, _db.recentSearches);
   $$PreferenceEntriesTableTableManager get preferenceEntries =>
       $$PreferenceEntriesTableTableManager(_db, _db.preferenceEntries);
+  $$ProviderEntriesTableTableManager get providerEntries =>
+      $$ProviderEntriesTableTableManager(_db, _db.providerEntries);
+  $$ProviderTitlePrefsTableTableManager get providerTitlePrefs =>
+      $$ProviderTitlePrefsTableTableManager(_db, _db.providerTitlePrefs);
+  $$ProviderManifestsTableTableManager get providerManifests =>
+      $$ProviderManifestsTableTableManager(_db, _db.providerManifests);
 }

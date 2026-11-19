@@ -4,7 +4,7 @@
 
 A cross-platform anime discovery and streaming app built with Flutter — dark, cinematic and fast, with Android as the primary target and Windows as a first-class desktop experience.
 
-Current release line: **v0.1.0-alpha** (first installable Android build).
+Current release line: **v0.2.0-alpha.1** (provider platform foundation).
 
 ---
 
@@ -23,7 +23,7 @@ Everything listed here runs in the app and is backed by real code and local stor
 | Watch history | ✅ | Per-episode positions, resume, delete, clear all |
 | Local database | ✅ | SQLite via Drift, versioned schema, data preserved across restarts (tested) |
 | Metadata | ✅ | AniList GraphQL (trending, seasonal, search, filters, details, relations) |
-| Provider architecture | ✅ design · 🟡 implementation | Contract, registry and source manager ship today. The provider platform (user-installed sources, configuration, priority, typed failures) and the declarative manifest format are specified and frozen for v0.2 — [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) — with a test matrix and a security review |
+| Provider architecture | 🟡 platform implemented | Two provider kinds, separate registries, three state axes with one derived state, `probe()`/`dispose()`, sealed `ProviderFailure`, all-match resolution with priority and per-title preference, and additive schema v2 — [docs/PROVIDERS.md](docs/PROVIDERS.md). The declarative manifest tier (2.2b–2.2d) is specified and frozen but not implemented — [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) |
 | Video player | ✅ | media_kit, custom controls, quality/audio/subtitle menus, speed, resume, auto-next, keyboard shortcuts |
 | Playback test library | ✅ | Two public test streams (Apple, Mux) to verify playback end to end |
 | Settings | ✅ | Appearance, playback, subtitles, audio, sources, AniList status, about/licences |
@@ -94,7 +94,7 @@ flutter run                     # add -d windows on a Windows host
 ```bash
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze                 # must report: No issues found!
-flutter test                    # 79 tests
+flutter test                    # 144 tests
 ```
 
 ### Build an APK locally (unsigned preview)
@@ -121,7 +121,8 @@ lib/
   app/            app root, router, adaptive shell, navigation model
   core/           design tokens, errors, utilities, reusable widgets
   data/           models, Drift database, repositories, Riverpod providers
-  integrations/   AniList client, streaming provider contracts, playback session
+  integrations/   provider platform (descriptors, registries, resolver, failures),
+                  AniList metadata adapter, streaming contracts, playback session
   features/       home, explore, anime_details, library, history, profile,
                   settings, player
 docs/             release policy, provider platform + manifest specification,

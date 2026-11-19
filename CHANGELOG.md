@@ -2,6 +2,74 @@
 
 All notable changes to NEXUS are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.0-alpha.1] — 2026-11-19 — provider platform foundation
+
+Milestones **2.1a, 2.1b, 2.2a and 2.1c** of
+[docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). The application id (`app.nexus`), the
+release-signing identity and every existing library, history, progress and
+setting row are preserved. Schema v2 is an additive migration from a committed v1
+database fixture.
+
+### Added
+
+- `ProviderDescriptor` envelope shared by both provider kinds: stable id, name,
+  description, version, origin, contract range, platform set, declared
+  configuration fields and attribution (`lib/integrations/providers/`).
+- Two independent registries with compatibility evaluated once at registration:
+  `StreamingProviderRegistry` and `MetadataProviderRegistry`.
+- The three independent axes — `ProviderCompatibility`, `ProviderConfigurationState`,
+  `ProviderAvailability` — plus the single derived `ProviderPresentationState`
+  (usable, needs setup, rejected config, incompatible, unavailable, disabled).
+- Sealed `ProviderFailure` taxonomy (13 subtypes) with stable machine codes and an
+  `AppFailure` mapping; `ProviderException` is gone.
+- Lifecycle: `probe()` returns a timestamped `ProviderStatusSnapshot`, and
+  `dispose()` is mandatory and idempotent on both contracts.
+- `MetadataProvider` contract, `AniListMetadataProvider`, and `MediaPage` moved to
+  `lib/data/models/` so no file outside `lib/integrations/anilist/` imports
+  `AniListClient`.
+- `ProviderResolver`: collects **every** matching provider, honours stored
+  priority, applies a per-title preference, caps concurrent probes at 4, caches
+  matches for a 2-minute TTL, and keeps every failure typed per provider.
+- `ProviderStore` and additive schema v2 (`provider_entries`,
+  `provider_title_prefs`, `provider_manifests`) with a 1 → 2 migration that
+  backfills from `sources.enabled` and preserves every existing row.
+- Details screen: selects among multiple matching sources, persists that choice as
+  the per-title preference, and collapses source failures into one expandable line.
+- `test/providers/` suites and `test/fixtures/nexus_v1.sqlite` (a real v0.1
+  database) covering contract honesty, the three axes, resolution, metadata
+  independence and the migration.
+
+### Changed
+
+- `SourceManager`/`ProviderRegistry` replaced by `ProviderResolver` and the two
+  registries; `ProviderStatus.status` replaced by `probe()`.
+- AniList now sits behind `MetadataProvider`; `MetadataRepository` depends on the
+  interface and keeps the TTL cache above it.
+- Provider enablement is written to both `provider_entries` (authoritative) and the
+  legacy `sources.enabled` preference, which stays readable for this release
+  (decision D8).
+- Version `0.2.0-alpha.1` (versionCode 2); `AppConstants.databaseSchemaVersion` 2.
+
+### Tooling
+
+- `build_runner` pinned to 2.16.2 (build 4.x). The published 2.17.1/5.0.0 pair
+  references an `AssetId` extension that `build` 5.0.0 does not contain, so
+  generation cannot run with it. Dev tooling only — no runtime dependency changed.
+
+### Verified
+
+- `dart format --set-exit-if-changed` clean, `flutter analyze` 0 issues,
+  `flutter test` **144/144 passed** (79 baseline + 65 new), release APK builds with
+  `app.nexus` / `0.2.0-alpha.1` / versionCode 2.
+- Not verified: runtime behaviour (no device/emulator), Windows build, and the
+  migration on a real installed app rather than the committed v1 fixture.
+
+### Not in this release
+
+Declarative manifests (2.2b), provider configuration/secrets (2.2c), the Sources
+state surface and diagnostics (2.2d), an authorised content provider (2.3a), real
+episodes/subtitles (2.3b). No UI redesign.
+
 ## [Unreleased] — provider platform specification and v0.2 plan (documentation only)
 
 No application behaviour changed in these revisions: no source file, database

@@ -48,7 +48,7 @@ void main() {
   group('schema', () {
     test('uses the versioned schema constant', () {
       expect(db.schemaVersion, AppConstants.databaseSchemaVersion);
-      expect(db.schemaVersion, 1);
+      expect(db.schemaVersion, 2);
     });
 
     test('creates all tables on open', () async {
@@ -57,6 +57,9 @@ void main() {
       expect(await db.select(db.progressEntries).get(), isEmpty);
       expect(await db.select(db.recentSearches).get(), isEmpty);
       expect(await db.select(db.preferenceEntries).get(), isEmpty);
+      expect(await db.select(db.providerEntries).get(), isEmpty);
+      expect(await db.select(db.providerTitlePrefs).get(), isEmpty);
+      expect(await db.select(db.providerManifests).get(), isEmpty);
     });
   });
 

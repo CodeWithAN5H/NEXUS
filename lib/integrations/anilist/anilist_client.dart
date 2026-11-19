@@ -4,27 +4,8 @@ import '../../core/constants/app_constants.dart';
 import '../../core/errors/app_failure.dart';
 import '../../data/models/anime.dart';
 import '../../data/models/explore_filter.dart';
+import '../../data/models/media_page.dart';
 import 'anilist_queries.dart';
-
-/// One page of metadata results.
-class MediaPage {
-  const MediaPage({
-    required this.items,
-    required this.hasNextPage,
-    this.total = 0,
-  });
-
-  const MediaPage.empty()
-    : items = const <Anime>[],
-      hasNextPage = false,
-      total = 0;
-
-  final List<Anime> items;
-  final bool hasNextPage;
-  final int total;
-
-  bool get isEmpty => items.isEmpty;
-}
 
 /// Thin, typed wrapper over the AniList GraphQL API.
 ///

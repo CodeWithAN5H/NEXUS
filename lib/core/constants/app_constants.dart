@@ -3,8 +3,8 @@
 abstract final class AppConstants {
   static const String appName = 'NEXUS';
   static const String tagline = 'Stream. Discover. Enjoy.';
-  static const String appVersion = '0.1.0-alpha';
-  static const int versionCode = 1;
+  static const String appVersion = '0.2.0-alpha.1';
+  static const int versionCode = 2;
 
   /// AniList GraphQL endpoint (metadata only — never video).
   static const String anilistEndpoint = 'https://graphql.anilist.co';
@@ -21,7 +21,7 @@ abstract final class AppConstants {
 
   /// Current schema version of the local database. Bump together with a
   /// migration in `NexusDatabase.migration` — never in isolation.
-  static const int databaseSchemaVersion = 1;
+  static const int databaseSchemaVersion = 2;
 
   /// How many items each home rail shows.
   static const int homeRailLength = 12;

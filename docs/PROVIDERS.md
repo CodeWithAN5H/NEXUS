@@ -8,6 +8,15 @@ installed, configured, resolved and removed. [ARCHITECTURE.md](../ARCHITECTURE.m
 subset (see §12). Nothing here is implemented yet, and no schema, source file or
 UI was changed by this revision.
 
+Companion documents:
+
+| Document | Covers |
+|---|---|
+| [PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) | The declarative manifest format (§7 Tier B), field by field, with the JSON Schema |
+| [PROVIDER_TESTS.md](PROVIDER_TESTS.md) | The contract test matrix these rules are verified by |
+| [PROVIDER_SECURITY.md](PROVIDER_SECURITY.md) | Threat model, protections and residual risks of the manifest tier |
+| [V0.2_PLAN.md](V0.2_PLAN.md) | Milestone sequence that implements this specification |
+
 ---
 
 ## 1. Principles
@@ -280,43 +289,59 @@ only composition point.
 A JSON manifest describing an HTTP catalogue, executed by one generic adapter.
 This is what lets a user add a compatible provider without a new APK.
 
+**Normative format:** [PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) and
+[`schema/provider-manifest.v1.schema.json`](schema/provider-manifest.v1.schema.json).
+The example below is abbreviated but structurally valid; it omits `probe`,
+seasons, subtitles, audio, error policy and every limit, which the format document
+defines.
+
 ```json
 {
-  "contractVersion": 1,
+  "manifestVersion": 1,
+  "contract": { "min": 1, "max": 1 },
   "id": "dev.example.catalog",
   "name": "Example Catalogue",
-  "kind": "streaming",
   "version": "1.0.0",
+  "kind": "streaming",
   "attribution": "Content © Example; used with permission",
   "capabilities": ["search", "seriesMatching", "episodes", "streams"],
   "config": [
     { "key": "baseUrl", "label": "API base URL", "type": "url", "required": true }
   ],
+  "net": { "origins": ["https://api.example.com"] },
   "requests": {
     "search": {
-      "method": "GET",
       "url": "{baseUrl}/search",
       "query": { "q": "{query}" },
-      "list": "$.results[*]",
+      "list": "$.results",
       "map": { "seriesId": "$.id", "title": "$.title", "coverImage": "$.poster" }
     },
+    "match": {
+      "url": "{baseUrl}/search",
+      "query": { "q": "{title}" },
+      "list": "$.results",
+      "strategy": "normalisedTitle",
+      "map": { "seriesId": "$.id", "title": "$.title" }
+    },
     "episodes": {
-      "method": "GET",
       "url": "{baseUrl}/series/{seriesId}/episodes",
-      "list": "$.episodes[*]",
+      "list": "$.episodes",
       "map": { "episodeId": "$.id", "number": "$.number", "title": "$.title" }
     },
     "resolve": {
-      "method": "GET",
       "url": "{baseUrl}/episodes/{episodeId}/sources",
-      "variants": "$.sources[*]",
-      "map": { "label": "$.quality", "uri": "$.url", "height": "$.height" }
+      "variants": {
+        "list": "$.sources",
+        "map": { "label": "$.quality", "uri": "$.url", "height": "$.height" }
+      }
     }
   }
 }
 ```
 
-Sandbox rules for Tier B:
+Sandbox rules for Tier B (details and limits in
+[PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) §5–§10; honest weaknesses in
+[PROVIDER_SECURITY.md](PROVIDER_SECURITY.md) §5):
 
 - **Declarative only.** Substitution of `{placeholders}` and JSON-path selection.
   No script, no expression evaluation, no templating language with logic.
@@ -338,6 +363,13 @@ Sandbox rules for Tier B:
 
 A Tier B provider is subject to exactly the same contract, capability, error and
 lifecycle rules as Tier A — the resolver cannot tell them apart.
+
+**A manifest is not a sandbox.** It cannot execute code or reach an undeclared
+host, but it can serve misleading content, point media at a host it declared, or
+feed a malformed stream to the player. NEXUS treats user-added providers as
+untrusted input to a trusted interpreter, and says so in the install review.
+The format is versioned: `manifestVersion` (format) and `contract` (platform
+range) are independent, so an old manifest keeps working across an app update.
 
 ---
 
@@ -381,11 +413,21 @@ Secrets do not go in SQLite; they go to secure storage under
 `provider.<id>.<key>`. `provider_id` values in `progress_entries` remain resume
 hints only.
 
+A `provider_manifests` row is written only after the manifest passes the full
+validation pipeline ([PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) §2, §9) and is
+re-validated on load; a row that no longer validates disables only its provider.
+Manifests are capped at 512 KiB, and `manifest_version` in `provider_entries`
+records which format version was stored so an older app can report
+`requiresNewerApp` instead of failing to parse.
+
 No table here changes or replaces an existing one, and the migration is additive.
 
 ---
 
 ## 10. Security and privacy
+
+Full threat model, per-attack protections and the residual risks that are
+accepted: [PROVIDER_SECURITY.md](PROVIDER_SECURITY.md).
 
 - No analytics, no telemetry, no remote provider directory.
 - Credentials: keystore only; never logged, never included in exports, never
@@ -425,7 +467,10 @@ No table here changes or replaces an existing one, and the migration is additive
 | Ordering | First enabled provider that matches | Collect all matches; user priority; per-title preference |
 | Errors | `ProviderException(message, isRetryable)` | Sealed `ProviderFailure` taxonomy (§8) |
 | Status | Synchronous `status` getter | `probe()` returning a timestamped snapshot |
-| User-added providers | Not possible | Tier B declarative adapter (§7) |
+| User-added providers | Not possible | Tier B declarative adapter (§7), manifest format v1 with a committed JSON Schema |
+| Manifest validation | None | Offline pipeline: parse → schema → templates → paths → semantics → compatibility ([PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) §9) |
+| Network egress | No allowlist; any URL a provider builds | HTTPS-only, origin-pinned, redirect-checked, size- and time-capped ([PROVIDER_SECURITY.md](PROVIDER_SECURITY.md) §3) |
+| Provider tests | Contract honesty and variant selection only | Full matrix: manifest schema, adapter, resolution, persistence, Sources UI ([PROVIDER_TESTS.md](PROVIDER_TESTS.md)) |
 | Persistence | `sources.enabled` comma list | Schema v2 tables (§9) |
 
 These are documented, deliberately **not** implemented in this revision: the task

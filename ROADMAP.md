@@ -18,8 +18,22 @@ Milestones are ordered by value, not dates. Each one ends with a verified build 
 ## v0.2.0-alpha — Provider platform, real content and deeper catalogues
 
 The milestone is sequenced: 2.1 and 2.2 are the platform the rest depends on;
-2.3 can land after 2.2 on its own; 2.4–2.6 are independent of each other.
+2.3 can land after 2.2 on its own; 2.4 and 2.5 are independent of each other.
 The normative provider specification is [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
+Implementation is broken into small, independently testable milestones with
+dependencies, completion criteria and owner decisions in
+[docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). Those sub-milestones deliver exactly the
+items below; they do not add scope.
+
+| Roadmap section | Plan milestones | Specification |
+|---|---|---|
+| 2.1 Provider platform core | 2.1a contract, 2.1b metadata kind, 2.1c resolution | [PROVIDERS.md](docs/PROVIDERS.md) §2–§5, §8 |
+| 2.2 User-managed configuration | 2.2a store + schema v2, 2.2b manifest adapter, 2.2c lifecycle, 2.2d Sources surface | [PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md), [PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md) |
+| 2.3 Real content | 2.3a authorised provider, 2.3b episodes and subtitles | [PROVIDERS.md](docs/PROVIDERS.md) §4, §13 |
+| 2.4 Catalogue depth | 2.4a Explore pagination, 2.4b AniList episode metadata | [DATABASE.md](DATABASE.md), AniList documents |
+| 2.5 Platform and branding | 2.5a Windows verification, 2.5b icon and splash | [UI_SPEC.md](UI_SPEC.md) |
+| Verification | every milestone | [PROVIDER_TESTS.md](docs/PROVIDER_TESTS.md) |
 
 **2.1 — Provider platform core**
 
@@ -51,8 +65,9 @@ The normative provider specification is [docs/PROVIDERS.md](docs/PROVIDERS.md).
 - Persistence for installed providers, their non-secret configuration and their
   order (additive schema migration — see [docs/PROVIDERS.md](docs/PROVIDERS.md) §9).
 - Declarative JSON integration format executed by one generic adapter, so a
-  compatible catalogue can be added without a new APK (sandboxed: HTTPS only,
-  origin-pinned, JSON-path mapping only, no scripting).
+  compatible catalogue can be added without a new APK (bounded: HTTPS only,
+  origin-pinned, JSON-path mapping only, no scripting). Format, limits and
+  validation: [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md).
 - Sources screen shows availability, compatibility and configuration as
   distinct states, with a per-provider diagnostic view.
 
@@ -113,8 +128,11 @@ and real episode lists and subtitles appear for matched titles.
 | Item | Why it blocks | What is needed |
 |---|---|---|
 | Anime content provider | NEXUS will not ship unauthorised sources | Owner selects an authorised provider (or supplies API access); implementation follows the contract in [docs/PROVIDERS.md](docs/PROVIDERS.md) |
-| Installable integration tier | The app ships no provider catalogue, and an unverified format with no real provider to validate it risks becoming an abandonment trap | Owner confirms whether v0.2 includes the declarative (user-added) tier or only the built-in adapter path; both are specified |
+| Installable integration tier | The app ships no provider catalogue, and an unverified format with no real provider to validate it risks becoming an abandonment trap | Owner confirms whether v0.2 includes the declarative (user-added) tier or only the built-in adapter path; both are specified, and the format is now frozen at v1 ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md)). Decision D2 in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md) §5 |
 | Application id | Permanent once distributed | **Resolved:** `app.nexus` confirmed permanent by the owner on 2026-11-17 — no action needed |
+| Provider secrets store | A keystore plugin is a new dependency (`flutter_secure_storage`) | Owner approves the dependency before the first provider with credentials (decision D4, [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md) §5) |
+| JSON Schema enforcement | A general schema package is a new dependency | Recommendation: an in-repo validator for the v1 subset (decision D3) |
+| Release cadence | Testers need a build to report against | Recommendation: pre-release tags `v0.2.0-alpha.N` per user-visible milestone (decision D7) |
 | Release keystore | Signing identity must never change | Owner approves keystore creation and stores it securely; `android/key.properties` then enables signed builds |
 | GitHub Releases channel | Distribution | Owner authorises repository releases and the update-check source |
 | Windows build | Needs a Windows host | Access to Windows with Visual Studio C++ workload |
@@ -122,7 +140,7 @@ and real episode lists and subtitles appear for matched titles.
 ## Later / evaluated
 
 - Linux desktop (media_kit libs already cover it; shell is platform-agnostic).
-- Signed, shareable integration manifests with a review checklist, if v0.2's declarative tier is adopted.
+- Signed, shareable integration manifests with a review checklist, if v0.2's declarative tier is adopted — the format and its threat model already exist ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md), [docs/PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md)); what is missing is signing and distribution policy.
 - Additional metadata providers behind the same interface (see `MetadataCapability`).
 - Optional sync backend (Supabase free tier or self-hosted) behind an opt-in toggle.
 - Offline downloads where a provider permits it.

@@ -1,8 +1,8 @@
 # NEXUS — Project Status
 
-**Last updated:** 2026-11-18
-**Milestone:** v0.1.0-alpha — committed and pushed to `main`; release pending signing secrets
-**Latest change:** provider architecture finalised for v0.2 — documentation only, no source, schema, UI or workflow change (§8)
+**Last updated:** 2026-11-19
+**Milestone:** v0.1.0-alpha shipped in `main`; release pending signing secrets — v0.2 preparation complete
+**Latest change:** provider manifest format (v1) frozen with a JSON Schema, contract test matrix, security review and a sequenced v0.2 plan — documentation only, no source, schema, UI, dependency or workflow change (§8, §9)
 **Source of truth:** https://github.com/CodeWithAN5H/NEXUS (branch `main`)
 **Application id:** `app.nexus` — confirmed permanent 2026-11-17
 
@@ -135,17 +135,17 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 
 ## 6. Next actions
 
-**Immediate (v0.2.0-alpha)** — sequenced; details in [ROADMAP.md](ROADMAP.md) and [docs/PROVIDERS.md](docs/PROVIDERS.md).
+**Immediate (v0.2.0-alpha)** — the sequence, dependencies and per-milestone completion criteria are in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md). The next code to write is milestone 2.1a; nothing in v0.2 has been implemented.
 
-1. Install the APK on a real Android device; verify launch, rails, search, details, library persistence and playback of the test streams. Record results here.
-2. Provider platform core: `MetadataProvider` split, descriptor envelope, three axes, `probe()`/`dispose()`, sealed `ProviderFailure`, collect-all resolution with priority and per-title preference.
-3. User-managed provider configuration: install/configure/prioritise/remove, declarative config schema, secrets in the keystore, additive schema v2 (`DATABASE.md` §6).
-4. Declarative integration tier for user-added compatible sources, if the owner confirms it is in v0.2 scope (see blocked table).
-5. Replace the Playback Test Library with the owner's chosen authorised provider through one of the two integration tiers (blocked — see below).
-6. Real episode lists and provider subtitle tracks in the player; AniList `streamingEpisodes` and air dates merged into the Episodes tab.
-7. Add pagination to Explore and rails.
-8. Verify the Windows build on a Windows host.
-9. Ship a custom launcher icon + splash from the brand mark.
+0. Install the v0.1.0-alpha APK on a real Android device; verify launch, rails, search, details, library persistence and playback of the test streams. Record results here. (Still blocked: no device — decision D6.)
+1. **2.1a** contract, descriptor envelope, three axes, `probe()`/`dispose()`, sealed `ProviderFailure`.
+2. **2.1b** `MetadataProvider` split; AniList stops being a special case.
+3. **2.2a** provider store + additive schema v2 ([DATABASE.md](DATABASE.md) §6).
+4. **2.1c** collect-all resolution, priority, per-title preference → first `v0.2.0-alpha.1` build.
+5. **2.2b** manifest validator and interpreter ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md)); **2.2c** lifecycle and configuration; **2.2d** Sources states, import review and diagnostics.
+6. **2.3a** register the owner's authorised provider; **2.3b** real episode lists and provider subtitles (blocked on decision D1).
+7. **2.4a** Explore pagination; **2.4b** AniList `streamingEpisodes` and air dates merged into the Episodes tab.
+8. **2.5a** Windows build verification (blocked on a Windows host); **2.5b** launcher icon and splash.
 
 **Then (v0.3 → v0.4)**
 6. Playback hardening: buffering reporting, per-title quality memory, PiP, error taxonomy.
@@ -160,6 +160,10 @@ Universal APK size is 105 MB because it carries libmpv for four ABIs. `flutter b
 | Choose an authorised content provider | Real anime playback | NEXUS will not integrate unauthorised sources; the integration point is now specified in [docs/PROVIDERS.md](docs/PROVIDERS.md) |
 | Adopt the declarative (user-added) integration tier in v0.2 | Letting users add compatible sources without an app update | Fully specified (§7 of `docs/PROVIDERS.md`); it is a larger sub-milestone than the built-in adapter path and changes the Sources surface |
 | Confirm `main` is the release branch | Tag-triggered publishing | `main` is the only branch with the milestone history; nothing has been released yet |
+| Is the declarative integration tier in v0.2? (D2) | Milestones 2.2b–2.2d | The format is now frozen at v1 with a schema, tests and a threat model, so deferring it is a scoping choice, not an unknown |
+| Approve `flutter_secure_storage` as a dependency (D4) | 2.2c, provider credentials | Required before any provider stores a secret; nothing is installed yet |
+| Approve the schema-enforcement approach (D3) | 2.2b | Recommendation: in-repo validator for the v1 subset, no new dependency |
+| Release cadence for pre-releases (D7) | Tester builds | Recommendation: `v0.2.0-alpha.N` per user-visible milestone |
 
 ---
 
@@ -228,3 +232,106 @@ implemented in this revision by design.
 
 **Not verified by this review:** nothing runtime-related was re-tested, because no
 code changed. The verification table in §3 still describes the v0.1.0-alpha build.
+
+---
+
+## 9. v0.2 preparation — 2026-11-19 (documentation only)
+
+The provider platform was specified down to the point where implementation can
+start without design decisions being made in code reviews. **No application
+source, database schema, dependency, UI, signing configuration or workflow was
+changed.** No APK was built or published.
+
+**Added**
+
+| Artefact | Role | Verified how |
+|---|---|---|
+| [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) | Declarative manifest format v1: lifecycle, placeholders, JSON-path subset, coercion, matching, numbering, errors, limits, validation stages, versioning, deliberate exclusions | Prose review against the platform spec |
+| [docs/schema/provider-manifest.v1.schema.json](docs/schema/provider-manifest.v1.schema.json) | Machine-readable JSON Schema (draft 2020-12, `additionalProperties: false`) | `Draft202012Validator.check_schema` + all committed examples |
+| `docs/schema/examples/valid-{minimal,full}.json` | Reference manifests | Both validate |
+| `docs/schema/examples/invalid-*.json` (4) | One deliberate defect each: plain-HTTP origin, unbacked capability, executable field, JSONPath filter | All rejected, with the documented path |
+| [docs/PROVIDER_TESTS.md](docs/PROVIDER_TESTS.md) | Contract test matrix: 24 schema, 46 adapter, 10 built-in, 15 resolution, 11 persistence, 10 Sources tests, plus requirement traceability | Review; executed from 2.2b |
+| [docs/PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md) | Threat model, per-attack protections, eight accepted residual risks, 12-point implementation checklist | Review |
+| [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md) | 13 milestones with dependencies, tests, completion criteria, release points and eight owner decisions | Review; roadmap scope unchanged |
+
+**What this settles**
+
+1. A compatible source can be added without an APK rebuild, using data only — no
+   scripting, no runtime code loading, no WebView.
+2. The format is constrained enough to validate offline and to enforce an egress
+   allowlist before a socket opens.
+3. "Secure" is stated precisely: code execution, filesystem access and
+   undeclared-origin requests are impossible; misleading content, hostile media
+   URLs on declared hosts and DNS rebinding are **not** prevented and are listed
+   as accepted risks.
+4. v0.2 is sequenced so each milestone can be built, tested and released
+   independently, and so a decision to defer the manifest tier (D2) or the
+   authorised provider (D1) blocks only the milestones that need them.
+
+**Verification run for this revision**
+
+| Check | Result |
+|---|---|
+| JSON Schema is a valid 2020-12 schema | ✅ `check_schema` passes |
+| Both valid example manifests validate | ✅ 0 errors |
+| All four invalid examples are rejected with the expected path/code | ✅ |
+| Relative links across every Markdown file resolve | ✅ 15 Markdown files scanned, 0 broken |
+| `git diff --check` | ✅ clean |
+| Diff contains only Markdown and the schema/examples under `docs/` | ✅ |
+| `flutter analyze` / `flutter test` | Not run — no Dart file changed |
+| APK build / Release | Not run, by scope |
+
+**Still not verified:** everything runtime-related, as in §3. The manifest format
+has been validated as *data*; no adapter exists to execute it.
+
+---
+
+## 10. Reproducing the documentation and schema checks
+
+These are documentation checks, not project dependencies: `jsonschema` is used
+only to validate the committed schema and examples, and is not added to
+`pubspec.yaml`.
+
+```bash
+# Schema is a valid draft 2020-12 schema, and the examples behave as documented
+python3 -m pip install --quiet jsonschema
+python3 - <<'PY'
+import glob, json
+from jsonschema import Draft202012Validator
+schema = json.load(open('docs/schema/provider-manifest.v1.schema.json'))
+Draft202012Validator.check_schema(schema)
+v = Draft202012Validator(schema)
+for f in sorted(glob.glob('docs/schema/examples/*.json')):
+    errors = list(v.iter_errors(json.load(open(f))))
+    expected_ok = '/valid-' in f
+    print(('PASS' if (not errors) == expected_ok else 'FAIL'), f, errors[:1])
+PY
+
+# Every relative Markdown link resolves (code fences ignored)
+python3 - <<'PY'
+import os, re, subprocess
+files = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True).stdout.split()
+link = re.compile(r'\]\(([^)#]+)\)')
+fence = chr(96) * 3  # keeps this snippet from closing its own code block
+broken = 0
+for f in files:
+    text = re.sub(fence + '.*?' + fence, '', open(f).read(), flags=re.S)
+    for target in link.findall(text):
+        if target.startswith(('http://', 'https://', 'mailto:')):
+            continue
+        path = target.split('#')[0]
+        if path and not os.path.exists(os.path.join(os.path.dirname(f), path)):
+            print('BROKEN', f, '->', target)
+            broken += 1
+print(len(files), 'files scanned,', broken, 'broken')
+PY
+
+git diff --check
+```
+
+Expected output: `PASS` for both valid examples and for all four `invalid-*`
+files (they are expected to fail validation), no `BROKEN` lines, and no
+whitespace errors from `git diff --check`.
+
+`flutter analyze` and `flutter test` are deliberately not part of this check: they
+cover Dart code, and this revision changed none.

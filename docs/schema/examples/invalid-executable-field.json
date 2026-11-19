@@ -1,0 +1,91 @@
+{
+  "manifestVersion": 1,
+  "id": "dev.example.minimal",
+  "name": "Example Minimal",
+  "version": "1.0.0",
+  "description": "Smallest useful manifest: a searchable catalogue with stream lookup.",
+  "kind": "streaming",
+  "contract": {
+    "min": 1,
+    "max": 1
+  },
+  "attribution": "Content \u00a9 Example Catalogue; used with permission.",
+  "capabilities": [
+    "search",
+    "seriesMatching",
+    "episodes",
+    "streams"
+  ],
+  "config": [
+    {
+      "key": "baseUrl",
+      "label": "API base URL",
+      "type": "url",
+      "required": true,
+      "placeholder": "https://api.example.com"
+    }
+  ],
+  "net": {
+    "origins": [
+      "https://api.example.com"
+    ],
+    "mediaHosts": [
+      "*.example-cdn.net"
+    ]
+  },
+  "requests": {
+    "search": {
+      "method": "GET",
+      "url": "{baseUrl}/search",
+      "query": {
+        "q": "{query}",
+        "page": "{page}"
+      },
+      "list": "$.results",
+      "map": {
+        "seriesId": "$.id",
+        "title": "$.title",
+        "coverImage": "$.poster",
+        "year": "$.year"
+      },
+      "script": "return $.title"
+    },
+    "match": {
+      "method": "GET",
+      "url": "{baseUrl}/search",
+      "query": {
+        "q": "{title}"
+      },
+      "list": "$.results",
+      "strategy": "normalisedTitleAndYear",
+      "map": {
+        "seriesId": "$.id",
+        "title": "$.title",
+        "year": "$.year"
+      }
+    },
+    "episodes": {
+      "method": "GET",
+      "url": "{baseUrl}/series/{seriesId}/episodes",
+      "list": "$.episodes",
+      "map": {
+        "episodeId": "$.id",
+        "number": "$.number",
+        "title": "$.title",
+        "durationSeconds": "$.runtime"
+      }
+    },
+    "resolve": {
+      "method": "GET",
+      "url": "{baseUrl}/episodes/{episodeId}/sources",
+      "variants": {
+        "list": "$.sources",
+        "map": {
+          "label": "$.quality",
+          "uri": "$.url",
+          "height": "$.height"
+        }
+      }
+    }
+  }
+}

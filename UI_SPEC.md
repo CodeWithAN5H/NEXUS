@@ -132,6 +132,8 @@ Intro notice that no anime source ships with the app; one card per registered pr
 
 **Planned for v0.2 (specified in [docs/PROVIDERS.md](docs/PROVIDERS.md) §2, §6; not implemented and not yet designed in detail):** the same cards, but the chip reports the derived provider state — *Ready · Test content only · Setup required · Sign-in rejected · Needs a newer NEXUS · Not available on this platform · Temporarily unavailable · Off* — each with the one action that can change it. Cards gain priority ordering, a generated configuration sheet for providers that declare fields, a per-provider diagnostic view, and Remove (with a confirmation that states library and history are untouched). The existing layout, tokens and components are reused; no visual redesign is part of this specification.
 
+**Planned for the manifest tier (same screen, [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) §2):** an *Add source* action that accepts a JSON manifest (paste or file) and shows a review before anything is installed — provider name and id, origin hosts, declared capabilities, attribution, and the validation result. Invalid manifests list `path → problem` rows and leave Install disabled. The configuration sheet is rendered from the declared fields (text, URL, secret, choice, boolean); secret fields show "configured" with a Replace action and never the value. Diagnostics are opt-in per provider and redacted. No new visual language, no new component types.
+
 ### 4.9 Player
 
 Full-window black surface. Artwork fills via `Video` (contain), subtitles styled from the size preference with a translucent background.

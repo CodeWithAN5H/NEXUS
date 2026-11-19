@@ -2,11 +2,12 @@
 
 All notable changes to NEXUS are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — provider architecture (documentation only)
+## [Unreleased] — provider platform specification and v0.2 plan (documentation only)
 
-No application behaviour changed in this revision: no source file, database
-schema, UI, dependency, signing configuration or workflow was modified. It
-finalises the provider platform and the v0.2 milestone before implementation.
+No application behaviour changed in these revisions: no source file, database
+schema, UI, dependency, signing configuration or workflow was modified, and no
+APK was built or published. They finalise the provider platform, freeze the
+declarative manifest format and sequence the v0.2 milestone before implementation.
 
 ### Added
 
@@ -15,6 +16,28 @@ finalises the provider platform and the v0.2 milestone before implementation.
   configuration, availability), lifecycle, the streaming contract, the resolution
   pipeline, the configuration model, the two integration tiers, the error
   taxonomy, the planned schema-v2 tables, security rules and a review checklist.
+- `docs/PROVIDER_MANIFEST.md` — normative declarative manifest format (v1):
+  install lifecycle, request definitions, the placeholder set, the JSON-path
+  subset, type coercion, matching strategies, episode numbering, status and error
+  mapping, timeouts and pacing, validation stages with error codes, versioning,
+  and the capabilities the format deliberately does not have.
+- `docs/schema/provider-manifest.v1.schema.json` — machine-readable JSON Schema
+  (draft 2020-12, closed objects) enforcing HTTPS origins, the path and template
+  grammars, capability/request pairing and the absence of executable fields.
+- `docs/schema/examples/` — two manifests that must validate and four that must be
+  rejected (plain-HTTP origin, unbacked capability, executable field, JSONPath
+  filter), used as the first schema tests.
+- `docs/PROVIDER_TESTS.md` — provider contract test matrix across six layers
+  (manifest schema, manifest adapter, built-in adapter, resolution, persistence,
+  Sources UI), with an expected outcome per test and traceability to PRD §4.6.
+- `docs/PROVIDER_SECURITY.md` — security and reliability review: SSRF and redirect
+  handling, origin validation, malformed and oversized responses, timeouts and
+  pacing, secret storage, stream-URL validation, failure containment, eight
+  accepted residual risks, and a 12-point implementation checklist. States
+  explicitly that a manifest is not a sandbox.
+- `docs/V0.2_PLAN.md` — 13 small milestones (2.1a → 2.5b) with dependencies, tests,
+  completion criteria, release points, a definition of done and eight open owner
+  decisions. Roadmap scope unchanged.
 
 ### Changed
 
@@ -35,7 +58,23 @@ finalises the provider platform and the v0.2 milestone before implementation.
   states; no layout was redesigned or implemented.
 - `CONTRIBUTING.md` — provider contribution steps and review checklist aligned with
   the specification.
-- `README.md` — provider rows and documentation index updated.
+- `README.md` — provider rows, documentation index and repository layout updated.
+- `docs/PROVIDERS.md` — Tier B now points at the normative manifest format; the
+  example uses `manifestVersion` + `contract`; §9 records manifest validation and
+  re-validation on load; §10 and §12 link the security review and the test matrix.
+- `ROADMAP.md` — v0.2 sections mapped to their plan milestones and specification
+  documents; three new owner decisions recorded (secrets dependency, schema
+  enforcement, release cadence).
+- `ARCHITECTURE.md` — planned `integrations/streaming/manifest/` files, the
+  manifest's non-sandbox status, and provider test layers added to §10.
+- `PRD.md` — F-S12 (validated, versioned manifests) and the privacy consequence of
+  direct provider requests.
+- `DATABASE.md` — schema v2 rules for validated manifest storage, stored contract
+  and format versions, and non-destructive removal.
+- `PROJECT_STATUS.md` — §9 records this preparation with what was and was not
+  verified; next actions now follow the milestone sequence.
+- `CONTRIBUTING.md` — how to add a manifest, and that the format is frozen for v1.
+- `UI_SPEC.md` — planned import-review and generated-form behaviour on Sources.
 
 ## [0.1.0-alpha] — 2026-11-17
 

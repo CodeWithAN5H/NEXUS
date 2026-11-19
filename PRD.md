@@ -84,7 +84,10 @@ Reference for tone and density: [reanime.cz](https://reanime.cz/home) (simplicit
 
 ### 4.6 Provider platform (v0.2)
 
-Normative detail: [docs/PROVIDERS.md](docs/PROVIDERS.md).
+Normative detail: [docs/PROVIDERS.md](docs/PROVIDERS.md). The declarative format
+is [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md), verification is
+[docs/PROVIDER_TESTS.md](docs/PROVIDER_TESTS.md), and the accepted security
+boundaries are [docs/PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md).
 
 | ID | Requirement | Acceptance |
 |---|---|---|
@@ -98,13 +101,14 @@ Normative detail: [docs/PROVIDERS.md](docs/PROVIDERS.md).
 | F-S8 | Failures degrade gracefully | One failing provider never fails a screen; failures map to typed, actionable messages; raw exceptions never reach the UI |
 | F-S9 | All matches are usable, not just the first | Resolution collects every matching provider, honours user priority and remembers a per-title source preference |
 | F-S10 | Removal is non-destructive | Disabling or removing a provider leaves library, history, positions and settings intact; a stale resume hint re-resolves instead of failing |
-| F-S11 | No capability bypass | No DRM circumvention, access-control bypass or unauthorised scraping is implemented or shipped; user-added integrations are declarative and sandboxed |
+| F-S11 | No capability bypass | No DRM circumvention, access-control bypass or unauthorised scraping is implemented or shipped; user-added integrations are declarative and bounded (HTTPS, origin-pinned, no code) |
+| F-S12 | User-added integrations are validated and versioned | A manifest must pass offline validation — format version, JSON Schema, capability/request pairing, placeholder and path rules, HTTPS origins — before it can be installed; failures list a path and a code; the format version and the provider contract version are independent, so an older manifest keeps working across an app update |
 
 ## 5. Non-functional requirements
 
 - **Performance:** cold start to first rail under 3 s on a mid-range device; no frame drops while scrolling rails (images cached and sized); position updates must not rebuild whole screens.
 - **Reliability:** a failed metadata request never crashes a screen; a failed migration never deletes data.
-- **Privacy:** no analytics, no account requirement, no data leaves the device except AniList queries and the chosen provider's stream requests.
+- **Privacy:** no analytics, no account requirement, no data leaves the device except AniList queries and the chosen provider's stream requests. A user-added provider sees the user's address directly, because nothing is proxied; the install review states this.
 - **Accessibility:** semantic labels on navigation, `Tooltip`s on icon buttons, text scaling clamped 0.9–1.3, minimum 40 px touch targets, contrast checked against the dark palette.
 - **Maintainability:** analyzer-clean, formatted, tested; providers and metadata sources replaceable without touching screens. Adding a provider must not require a schema migration, a route change or a screen change.
 - **Extensibility:** the provider platform is the only place a new source plugs in; capabilities, configuration and compatibility are declared data, not code branches in the UI.
@@ -123,5 +127,5 @@ Normative detail: [docs/PROVIDERS.md](docs/PROVIDERS.md).
 ## 7. Success criteria
 
 - v0.1: an installable APK where discovery, details and the library work and data persists. **Met.**
-- v0.2–v0.3: playback of authorised content, resume, subtitles. **Architecture finalised** — see [docs/PROVIDERS.md](docs/PROVIDERS.md); implementation starts with v0.2's provider platform.
+- v0.2–v0.3: playback of authorised content, resume, subtitles. **Architecture finalised and format frozen** — see [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) and the milestone sequence in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md); implementation starts at milestone 2.1a.
 - v1.0: stable Android + Windows releases, AniList sync, documented release process, no known data-loss defect.

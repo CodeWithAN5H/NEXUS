@@ -29,7 +29,9 @@ lib/
 │   ├── metadata/         MetadataProvider contract (AniList adapter lives here in v0.2)
 │   ├── playback/         PlaybackSession (only place media_kit is imported)
 │   └── streaming/        StreamingProvider contract, descriptors, sample provider,
-│                         registry, resolver, declarative integration adapter
+│                         registry, resolver
+│       └── manifest/     Declarative integration adapter: model, validator,
+│                         JSON-path reader, template binder, bounded HTTP
 └── features/             One folder per screen/flow
     ├── home/ explore/ anime_details/ library/ history/ profile/ settings/ player/
 ```
@@ -156,11 +158,24 @@ prove this: it advertises *limited* availability and `match()` always returns
 `null`, so a real anime is never shown sample video.
 
 **User-added providers** are declarative JSON manifests executed by one generic
-adapter, sandboxed to HTTPS, origin-pinned hosts and JSON-path mapping with no
+adapter, bounded to HTTPS, origin-pinned hosts and JSON-path mapping with no
 scripting. Flutter release builds are AOT-compiled and cannot load Dart code at
 runtime; a manifest adapter is the only mechanism that adds providers without an
 APK rebuild and without becoming a WebView scraper, which this project rejects.
 The resolver cannot distinguish the two tiers.
+
+Normative format: [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) with
+[`docs/schema/provider-manifest.v1.schema.json`](docs/schema/provider-manifest.v1.schema.json).
+Threat model and accepted risks: [docs/PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md).
+Planned files (none exist yet): `manifest/provider_manifest.dart` (model),
+`manifest_validator.dart`, `json_path_reader.dart`, `template_binder.dart`,
+`manifest_http.dart` (allowlist, redirects, caps, pacing) and
+`manifest_streaming_provider.dart` (implements `StreamingProvider`).
+
+A manifest is **not** a sandbox: it cannot execute code or reach an undeclared
+host, but it can serve misleading content or a hostile media URL on a host it
+declared. Both are treated as untrusted input to a trusted interpreter, and the
+install review shows origin, capabilities and hosts before anything is added.
 
 ### 5.5 Resolution
 
@@ -178,8 +193,8 @@ user wants". A failing provider degrades its own entry; it never fails the scree
 and the Episodes tab lists source errors in a collapsible line.
 
 Provider state that must survive a restart: installed providers, non-secret
-configuration, priority order and per-title preference. Secrets live in the
-platform keystore. Saved `provider_id`/`series_id` hints in `progress_entries`
+configuration, priority order and per-title preference (§5.5). Secrets live in the
+platform keystore. Persistence shape: [DATABASE.md](DATABASE.md) §6. Saved `provider_id`/`series_id` hints in `progress_entries`
 stay hints — if that provider is gone, the title is re-resolved instead of
 failing.
 
@@ -234,6 +249,13 @@ Branch indices are fixed and mirrored in `navigation_destinations.dart`; the rou
 | Formatters / ids | `test/formatters_test.dart` | Display formatting, deterministic local ids |
 | Models | `test/models_test.dart` | AniList mapping, fallbacks, filters, settings round-trip |
 | Providers | `test/streaming_provider_test.dart` | Contract honesty, variant selection, source manager behaviour |
+| Manifest schema | `test/providers/manifest_schema_test.dart` (v0.2) | Valid/invalid manifests, error codes and paths; the committed examples in `docs/schema/examples/` |
+| Manifest adapter | `test/providers/manifest_adapter_test.dart` (v0.2) | Mapping, coercion, timeouts, malformed responses, stream-URL refusal, allowlist |
+| Resolution | `test/providers/resolver_test.dart` (v0.2) | Collect-all, priority, per-title preference, partial failure, capability gating |
+| Provider store | `test/providers/provider_store_test.dart` (v0.2) | Schema v2 migration, restart persistence, non-destructive removal, secrets absent from SQLite |
+
+The full matrix, with expected outcomes per test, is
+[docs/PROVIDER_TESTS.md](docs/PROVIDER_TESTS.md).
 | Database | `test/database_test.dart` | Schema, repository behaviour, data preservation across re-open |
 | Widgets | `test/widgets_test.dart` | Poster, chips, states, bottom bar, player controls |
 

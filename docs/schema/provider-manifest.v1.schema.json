@@ -1,0 +1,573 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexus.invalid/schema/provider-manifest.v1.schema.json",
+  "title": "NEXUS provider manifest",
+  "description": "A declarative description of a streaming catalogue. Executed by one generic adapter; contains no executable code. Normative prose: docs/PROVIDER_MANIFEST.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestVersion",
+    "id",
+    "name",
+    "version",
+    "kind",
+    "contract",
+    "attribution",
+    "capabilities",
+    "net",
+    "requests"
+  ],
+  "properties": {
+    "manifestVersion": {
+      "description": "Schema version of this document. The runtime refuses manifests it does not know.",
+      "const": 1
+    },
+    "id": {
+      "description": "Stable reverse-dns identifier. Permanent once installed; renaming is a different provider.",
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9]*(?:\\.[a-z0-9][a-z0-9-]*)+$",
+      "not": {
+        "pattern": "^(?:nexus|app|com\\.nexus)(?:\\.|$)"
+      }
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+    },
+    "version": {
+      "description": "The manifest's own semver. Shown in the UI and in diagnostics.",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]{1,32})?$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 280
+    },
+    "kind": {
+      "description": "v1 supports streaming manifests only. Metadata manifests are not defined yet.",
+      "const": "streaming"
+    },
+    "contract": {
+      "description": "Provider-platform contract range this manifest was written against. Outside the running app's range the provider is reported as unsupportedContract and never invoked.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "max": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      }
+    },
+    "attribution": {
+      "description": "Licence or credit line. Always displayed wherever this provider's content appears; cannot be empty.",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 280
+    },
+    "homepage": {
+      "type": "string",
+      "pattern": "^https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[^\\s]*)?$",
+      "maxLength": 512
+    },
+    "capabilities": {
+      "description": "Declared abilities. Each must be backed by the request section it needs; the schema enforces the pairing.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "search",
+          "seriesMatching",
+          "seasons",
+          "episodes",
+          "streams",
+          "qualities",
+          "subtitles",
+          "audioTracks",
+          "continueWatching"
+        ]
+      }
+    },
+    "config": {
+      "description": "Declared configuration fields. Settings renders this list; no provider-specific form exists in the app.",
+      "type": "array",
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/configField" }
+    },
+    "net": {
+      "description": "Network envelope. Everything outside it is refused before a socket is opened.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origins"],
+      "properties": {
+        "origins": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/origin" }
+        },
+        "mediaHosts": {
+          "description": "Host suffixes that resolved stream and subtitle URLs may use. `*.example.com` matches sub-domains only. Empty means media URLs must stay on an allowed origin.",
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/hostPattern" }
+        },
+        "maxRedirects": { "type": "integer", "minimum": 0, "maximum": 5, "default": 3 },
+        "minRequestIntervalMs": {
+          "description": "Client-side spacing between API requests to this provider, to avoid hammering it.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 250
+        },
+        "timeoutMs": {
+          "description": "Default per-request timeout. Individual requests may lower it, never raise it above 20000.",
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 20000,
+          "default": 15000
+        },
+        "maxResponseBytes": {
+          "type": "integer",
+          "minimum": 16384,
+          "maximum": 2097152,
+          "default": 1048576
+        }
+      }
+    },
+    "requests": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "probe": { "$ref": "#/$defs/probeRequest" },
+        "search": { "$ref": "#/$defs/searchRequest" },
+        "match": { "$ref": "#/$defs/matchRequest" },
+        "seasons": { "$ref": "#/$defs/seasonsRequest" },
+        "episodes": { "$ref": "#/$defs/episodesRequest" },
+        "resolve": { "$ref": "#/$defs/resolveRequest" }
+      }
+    },
+    "errors": { "$ref": "#/$defs/errorPolicy" },
+    "notice": {
+      "description": "Optional line shown in the player for every stream from this provider (e.g. a licensing restriction).",
+      "type": "string",
+      "maxLength": 200
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "capabilities": { "contains": { "const": "search" } } } },
+      "then": { "properties": { "requests": { "required": ["search"] } } }
+    },
+    {
+      "if": { "properties": { "capabilities": { "contains": { "const": "seriesMatching" } } } },
+      "then": { "properties": { "requests": { "required": ["match"] } } }
+    },
+    {
+      "if": { "properties": { "capabilities": { "contains": { "const": "seasons" } } } },
+      "then": { "properties": { "requests": { "required": ["seasons"] } } }
+    },
+    {
+      "if": { "properties": { "capabilities": { "contains": { "const": "episodes" } } } },
+      "then": { "properties": { "requests": { "required": ["episodes"] } } }
+    },
+    {
+      "if": { "properties": { "capabilities": { "contains": { "const": "streams" } } } },
+      "then": { "properties": { "requests": { "required": ["resolve"] } } }
+    },
+    {
+      "if": { "properties": { "capabilities": { "contains": { "const": "subtitles" } } } },
+      "then": { "properties": { "requests": { "required": ["resolve"] } } }
+    },
+    {
+      "if": {
+        "properties": { "capabilities": { "contains": { "const": "continueWatching" } } }
+      },
+      "then": {
+        "description": "Provider-side resume is not part of manifest v1.",
+        "properties": {
+          "capabilities": { "not": { "contains": { "const": "continueWatching" } } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "origin": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\\.)+[A-Za-z]{2,24}(?::[0-9]{1,5})?$"
+    },
+    "hostPattern": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^(?:\\*\\.)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,24}$"
+    },
+    "template": {
+      "description": "A URI or header value with `{placeholder}` substitution. Whitespace, angle brackets and quotes are refused so a value cannot break out of its header or URI component.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\s<>\"'`]{1,512}$"
+    },
+    "jsonPath": {
+      "description": "A JSON path subset: `$`, `.key`, `[\"key\"]`, `[n]`, and one trailing `[*]`. No filters, recursion, functions or expressions.",
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^\\$(?:\\.(?:[A-Za-z_][A-Za-z0-9_]{0,63})|\\[\\d{1,4}\\]|\\[\"[A-Za-z_][A-Za-z0-9_ .-]{0,63}\"\\])*(?:\\[\\*\\])?$"
+    },
+    "templateMap": {
+      "type": "object",
+      "maxProperties": 12,
+      "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9-]{0,31}$" },
+      "additionalProperties": { "$ref": "#/$defs/template" }
+    },
+    "requestHeaders": {
+      "type": "object",
+      "maxProperties": 10,
+      "propertyNames": {
+        "pattern": "^[A-Za-z][A-Za-z0-9-]{0,31}$",
+        "not": {
+          "enum": [
+            "Host",
+            "Content-Length",
+            "Connection",
+            "Transfer-Encoding",
+            "Upgrade",
+            "Expect",
+            "Cookie",
+            "Set-Cookie"
+          ]
+        }
+      },
+      "additionalProperties": { "$ref": "#/$defs/template" }
+    },
+    "statusList": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 100, "maximum": 599 }
+    },
+    "configField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "type"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9_]{0,31}$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "type": { "enum": ["text", "url", "secret", "choice", "bool"] },
+        "required": { "type": "boolean", "default": false },
+        "hint": { "type": "string", "maxLength": 160 },
+        "defaultValue": { "type": "string", "maxLength": 512 },
+        "placeholder": { "type": "string", "maxLength": 120 },
+        "choices": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 16,
+          "items": { "type": "string", "maxLength": 40 }
+        },
+        "pattern": {
+          "description": "Optional validation regex for a user-entered value. Bounded length; applied to configuration only, never to response bodies.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "maxLength": { "type": "integer", "minimum": 1, "maximum": 512, "default": 256 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "choice" } }, "required": ["type"] },
+          "then": { "required": ["choices"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "url" } }, "required": ["type"] },
+          "then": {
+            "properties": {
+              "defaultValue": {
+                "pattern": "^https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[^\\s]*)?$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "httpRequest": {
+      "description": "Fields every request definition shares.",
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "method": { "enum": ["GET", "POST"], "default": "GET" },
+        "url": { "$ref": "#/$defs/template" },
+        "query": { "$ref": "#/$defs/templateMap" },
+        "headers": { "$ref": "#/$defs/requestHeaders" },
+        "body": {
+          "description": "JSON body for POST. Values are templates; nesting is limited to one object level.",
+          "type": "object",
+          "maxProperties": 12,
+          "additionalProperties": {
+            "type": ["string", "number", "boolean"]
+          }
+        },
+        "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 20000 },
+        "maxBytes": { "type": "integer", "minimum": 16384, "maximum": 2097152 }
+      }
+    },
+    "seriesMap": {
+      "description": "Extraction of one series from one list item.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seriesId", "title"],
+      "properties": {
+        "seriesId": { "$ref": "#/$defs/jsonPath" },
+        "title": { "$ref": "#/$defs/jsonPath" },
+        "coverImage": { "$ref": "#/$defs/jsonPath" },
+        "synopsis": { "$ref": "#/$defs/jsonPath" },
+        "year": { "$ref": "#/$defs/jsonPath" },
+        "episodeCount": { "$ref": "#/$defs/jsonPath" }
+      }
+    },
+    "probeRequest": {
+      "description": "Cheap availability check. Absent means the adapter probes the first configured origin for connectivity only.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url"],
+      "properties": {
+        "method": { "enum": ["GET", "HEAD"], "default": "GET" },
+        "url": { "$ref": "#/$defs/template" },
+        "headers": { "$ref": "#/$defs/requestHeaders" },
+        "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 20000 },
+        "expectStatus": { "$ref": "#/$defs/statusList" }
+      }
+    },
+    "searchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "list", "map"],
+      "properties": {
+        "method": { "enum": ["GET", "POST"], "default": "GET" },
+        "url": { "$ref": "#/$defs/template" },
+        "query": { "$ref": "#/$defs/templateMap" },
+        "headers": { "$ref": "#/$defs/requestHeaders" },
+        "body": {
+          "type": "object",
+          "maxProperties": 12,
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 20000 },
+        "maxBytes": { "type": "integer", "minimum": 16384, "maximum": 2097152 },
+        "notFoundStatus": { "$ref": "#/$defs/statusList" },
+        "list": { "$ref": "#/$defs/jsonPath" },
+        "maxResults": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+        "map": { "$ref": "#/$defs/seriesMap" }
+      }
+    },
+    "matchRequest": {
+      "description": "Resolves one metadata title to one provider series. The strategy is fixed by the platform; the manifest chooses from it and supplies the fields.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "list", "map", "strategy"],
+      "properties": {
+        "method": { "enum": ["GET", "POST"], "default": "GET" },
+        "url": { "$ref": "#/$defs/template" },
+        "query": { "$ref": "#/$defs/templateMap" },
+        "headers": { "$ref": "#/$defs/requestHeaders" },
+        "body": {
+          "type": "object",
+          "maxProperties": 12,
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 20000 },
+        "maxBytes": { "type": "integer", "minimum": 16384, "maximum": 2097152 },
+        "notFoundStatus": { "$ref": "#/$defs/statusList" },
+        "list": { "$ref": "#/$defs/jsonPath" },
+        "maxResults": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 },
+        "map": { "$ref": "#/$defs/seriesMap" },
+        "strategy": {
+          "enum": ["exactTitle", "normalisedTitle", "normalisedTitleAndYear"]
+        },
+        "minConfidence": {
+          "description": "Optional floor (0.0–1.0) below which a candidate is discarded rather than offered.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.9
+        }
+      }
+    },
+    "seasonsRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "list", "map"],
+      "properties": {
+        "method": { "enum": ["GET", "POST"], "default": "GET" },
+        "url": { "$ref": "#/$defs/template" },
+        "query": { "$ref": "#/$defs/templateMap" },
+        "headers": { "$ref": "#/$defs/requestHeaders" },
+        "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 20000 },
+        "maxBytes": { "type": "integer", "minimum": 16384, "maximum": 2097152 },
+        "notFoundStatus": { "$ref": "#/$defs/statusList" },
+        "list": { "$ref": "#/$defs/jsonPath" },
+        "map": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["seasonId", "label", "index"],
+          "properties": {
+            "seasonId": { "$ref": "#/$defs/jsonPath" },
+            "label": { "$ref": "#/$defs/jsonPath" },
+            "index": { "$ref": "#/$defs/jsonPath" },
+            "episodeCount": { "$ref": "#/$defs/jsonPath" },
+            "year": { "$ref": "#/$defs/jsonPath" }
+          }
+        }
+      }
+    },
+    "episodesRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "list", "map"],
+      "properties": {
+        "method": { "enum": ["GET", "POST"], "default": "GET" },
+        "url": { "$ref": "#/$defs/template" },
+        "query": { "$ref": "#/$defs/templateMap" },
+        "headers": { "$ref": "#/$defs/requestHeaders" },
+        "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 20000 },
+        "maxBytes": { "type": "integer", "minimum": 16384, "maximum": 2097152 },
+        "notFoundStatus": { "$ref": "#/$defs/statusList" },
+        "list": { "$ref": "#/$defs/jsonPath" },
+        "numbering": { "enum": ["absolute", "seasonRelative"], "default": "absolute" },
+        "map": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["episodeId", "number", "title"],
+          "properties": {
+            "episodeId": { "$ref": "#/$defs/jsonPath" },
+            "number": { "$ref": "#/$defs/jsonPath" },
+            "title": { "$ref": "#/$defs/jsonPath" },
+            "seasonId": { "$ref": "#/$defs/jsonPath" },
+            "durationSeconds": { "$ref": "#/$defs/jsonPath" },
+            "thumbnail": { "$ref": "#/$defs/jsonPath" },
+            "description": { "$ref": "#/$defs/jsonPath" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "numbering": { "const": "seasonRelative" } },
+            "required": ["numbering"]
+          },
+          "then": {
+            "description": "Season-relative numbering needs the season of each episode and the episode count of every earlier season, so the adapter can compute absolute numbers.",
+            "required": ["map"],
+            "properties": {
+              "map": { "required": ["seasonId"] }
+            }
+          }
+        }
+      ]
+    },
+    "resolveRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "variants"],
+      "properties": {
+        "method": { "enum": ["GET", "POST"], "default": "GET" },
+        "url": { "$ref": "#/$defs/template" },
+        "query": { "$ref": "#/$defs/templateMap" },
+        "headers": { "$ref": "#/$defs/requestHeaders" },
+        "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 20000 },
+        "maxBytes": { "type": "integer", "minimum": 16384, "maximum": 2097152 },
+        "notFoundStatus": { "$ref": "#/$defs/statusList" },
+        "variants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["list", "map"],
+          "properties": {
+            "list": { "$ref": "#/$defs/jsonPath" },
+            "map": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["label", "uri"],
+              "properties": {
+                "label": { "$ref": "#/$defs/jsonPath" },
+                "uri": { "$ref": "#/$defs/jsonPath" },
+                "height": { "$ref": "#/$defs/jsonPath" },
+                "protocol": { "$ref": "#/$defs/jsonPath" },
+                "isDefault": { "$ref": "#/$defs/jsonPath" }
+              }
+            }
+          }
+        },
+        "subtitles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["list", "map"],
+          "properties": {
+            "list": { "$ref": "#/$defs/jsonPath" },
+            "map": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["label", "uri"],
+              "properties": {
+                "label": { "$ref": "#/$defs/jsonPath" },
+                "uri": { "$ref": "#/$defs/jsonPath" },
+                "language": { "$ref": "#/$defs/jsonPath" },
+                "isDefault": { "$ref": "#/$defs/jsonPath" }
+              }
+            }
+          }
+        },
+        "audio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["list", "map"],
+          "properties": {
+            "list": { "$ref": "#/$defs/jsonPath" },
+            "map": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["label"],
+              "properties": {
+                "label": { "$ref": "#/$defs/jsonPath" },
+                "language": { "$ref": "#/$defs/jsonPath" },
+                "isDefault": { "$ref": "#/$defs/jsonPath" }
+              }
+            }
+          }
+        },
+        "streamHeaders": {
+          "description": "Headers the player attaches to the media request. Cookie is refused.",
+          "$ref": "#/$defs/requestHeaders"
+        },
+        "defaultProtocol": {
+          "enum": ["hls", "dash", "progressive"],
+          "default": "hls"
+        }
+      }
+    },
+    "errorPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unauthorisedStatus": { "$ref": "#/$defs/statusList" },
+        "rateLimitedStatus": { "$ref": "#/$defs/statusList" },
+        "retryAfterHeader": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[A-Za-z][A-Za-z0-9-]{0,31}$"
+        },
+        "messagePath": { "$ref": "#/$defs/jsonPath" },
+        "maxRetryAfterSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 300
+        }
+      }
+    }
+  }
+}

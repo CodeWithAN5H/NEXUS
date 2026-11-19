@@ -1,0 +1,169 @@
+{
+  "manifestVersion": 1,
+  "id": "dev.example.full",
+  "name": "Example Full",
+  "version": "2.1.0",
+  "description": "Every section of manifest v1, including seasons, subtitles, audio and an error policy.",
+  "kind": "streaming",
+  "contract": { "min": 1, "max": 1 },
+  "attribution": "Content © Example Catalogue; used with permission.",
+  "homepage": "https://example.com/catalogue",
+  "capabilities": [
+    "search",
+    "seriesMatching",
+    "seasons",
+    "episodes",
+    "streams",
+    "qualities",
+    "subtitles",
+    "audioTracks"
+  ],
+  "config": [
+    {
+      "key": "baseUrl",
+      "label": "API base URL",
+      "type": "url",
+      "required": true,
+      "defaultValue": "https://api.example.com"
+    },
+    {
+      "key": "apiKey",
+      "label": "API key",
+      "type": "secret",
+      "required": true,
+      "hint": "Created in your Example account settings."
+    },
+    {
+      "key": "region",
+      "label": "Region",
+      "type": "choice",
+      "choices": ["auto", "eu", "us"],
+      "defaultValue": "auto"
+    },
+    {
+      "key": "includeSpecials",
+      "label": "Include specials",
+      "type": "bool",
+      "defaultValue": "false"
+    }
+  ],
+  "net": {
+    "origins": ["https://api.example.com", "https://media.example.com"],
+    "mediaHosts": ["*.example-cdn.net"],
+    "maxRedirects": 2,
+    "minRequestIntervalMs": 300,
+    "timeoutMs": 12000,
+    "maxResponseBytes": 524288
+  },
+  "requests": {
+    "probe": {
+      "method": "GET",
+      "url": "{baseUrl}/health",
+      "headers": { "X-Api-Key": "{config.apiKey}" },
+      "expectStatus": [200]
+    },
+    "search": {
+      "method": "GET",
+      "url": "{baseUrl}/v2/search",
+      "query": { "q": "{query}", "page": "{page}", "region": "{config.region}" },
+      "headers": { "X-Api-Key": "{config.apiKey}", "Accept": "application/json" },
+      "timeoutMs": 10000,
+      "list": "$.data.items",
+      "maxResults": 40,
+      "notFoundStatus": [404],
+      "map": {
+        "seriesId": "$.id",
+        "title": "$.title",
+        "coverImage": "$.images.poster",
+        "synopsis": "$.summary",
+        "year": "$.year",
+        "episodeCount": "$.counts.episodes"
+      }
+    },
+    "match": {
+      "method": "POST",
+      "url": "{baseUrl}/v2/lookup",
+      "headers": { "X-Api-Key": "{config.apiKey}" },
+      "body": { "title": "{title}", "romaji": "{titleRomaji}", "year": "{year}" },
+      "list": "$.data.candidates",
+      "strategy": "normalisedTitleAndYear",
+      "minConfidence": 0.92,
+      "map": {
+        "seriesId": "$.id",
+        "title": "$.title",
+        "year": "$.year"
+      }
+    },
+    "seasons": {
+      "method": "GET",
+      "url": "{baseUrl}/v2/series/{seriesId}/seasons",
+      "headers": { "X-Api-Key": "{config.apiKey}" },
+      "list": "$.seasons",
+      "map": {
+        "seasonId": "$.slug",
+        "label": "$.name",
+        "index": "$.order",
+        "episodeCount": "$.count"
+      }
+    },
+    "episodes": {
+      "method": "GET",
+      "url": "{baseUrl}/v2/series/{seriesId}/episodes",
+      "query": { "season": "{seasonId}" },
+      "headers": { "X-Api-Key": "{config.apiKey}" },
+      "list": "$.episodes",
+      "numbering": "seasonRelative",
+      "map": {
+        "episodeId": "$.id",
+        "number": "$.episode",
+        "title": "$.title",
+        "seasonId": "$.season",
+        "durationSeconds": "$.durationSec",
+        "thumbnail": "$.thumb"
+      }
+    },
+    "resolve": {
+      "method": "GET",
+      "url": "{baseUrl}/v2/episodes/{episodeId}/sources",
+      "headers": { "X-Api-Key": "{config.apiKey}" },
+      "notFoundStatus": [404],
+      "variants": {
+        "list": "$.sources",
+        "map": {
+          "label": "$.quality.label",
+          "uri": "$.file",
+          "height": "$.quality.height",
+          "protocol": "$.type",
+          "isDefault": "$.default"
+        }
+      },
+      "subtitles": {
+        "list": "$.tracks.text",
+        "map": {
+          "label": "$.name",
+          "uri": "$.file",
+          "language": "$.lang",
+          "isDefault": "$.default"
+        }
+      },
+      "audio": {
+        "list": "$.tracks.audio",
+        "map": {
+          "label": "$.name",
+          "language": "$.lang",
+          "isDefault": "$.default"
+        }
+      },
+      "streamHeaders": { "Referer": "https://example.com/" },
+      "defaultProtocol": "hls"
+    }
+  },
+  "errors": {
+    "unauthorisedStatus": [401, 403],
+    "rateLimitedStatus": [429],
+    "retryAfterHeader": "Retry-After",
+    "messagePath": "$.error.message",
+    "maxRetryAfterSeconds": 600
+  },
+  "notice": "Streams are available in this region only."
+}

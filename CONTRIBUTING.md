@@ -78,7 +78,25 @@ Rules that a new provider must not break:
 - Provider code must not need a schema migration, a route change or a screen change to be added.
 - Disabling or removing a provider must leave library, history, positions and settings intact.
 
-Only integrate sources you are authorised to use. Do not add scrapers for protected services, DRM circumvention, or hardcoded third-party stream URLs. User-added sources use the sandboxed declarative format (HTTPS only, origin-pinned, JSON mapping, no scripting) described in `docs/PROVIDERS.md` §7.
+Only integrate sources you are authorised to use. Do not add scrapers for protected services, DRM circumvention, or hardcoded third-party stream URLs. User-added sources use the declarative format (HTTPS only, origin-pinned, JSON mapping, no scripting) described in `docs/PROVIDERS.md` §7.
+
+### Adding a declarative provider instead
+
+When the source is a plain HTTP+JSON API, no Dart is needed: write a manifest
+that satisfies [`docs/schema/provider-manifest.v1.schema.json`](docs/schema/provider-manifest.v1.schema.json)
+and check it against [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md).
+
+1. Start from `docs/schema/examples/valid-minimal.json`; validate before opening a PR.
+2. Declare only capabilities the runtime supports in v1 and back each one with its
+   request section — the schema enforces the pairing.
+3. Keep `net.origins` to the hosts you actually need; media URLs must stay on
+   `mediaHosts`, and plain HTTP is refused.
+4. Read [docs/PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md) §5 before claiming
+   a manifest is "safe"; state its residual risks honestly in the description.
+5. The format is **frozen for v1**. A new key needs a new `manifestVersion`, a
+   schema change, a validator change and tests — not a quietly extended fixture.
+6. Add cases to [docs/PROVIDER_TESTS.md](docs/PROVIDER_TESTS.md) if the manifest
+   exercises a path the matrix does not cover yet.
 
 ## 7. Database changes
 

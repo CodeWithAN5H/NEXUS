@@ -23,7 +23,7 @@ Everything listed here runs in the app and is backed by real code and local stor
 | Watch history | ✅ | Per-episode positions, resume, delete, clear all |
 | Local database | ✅ | SQLite via Drift, versioned schema, data preserved across restarts (tested) |
 | Metadata | ✅ | AniList GraphQL (trending, seasonal, search, filters, details, relations) |
-| Provider architecture | ✅ design · 🟡 implementation | Contract, registry and source manager ship today; the provider platform (user-installed sources, configuration, priority, typed failures) is specified in [docs/PROVIDERS.md](docs/PROVIDERS.md) and lands in v0.2 |
+| Provider architecture | ✅ design · 🟡 implementation | Contract, registry and source manager ship today. The provider platform (user-installed sources, configuration, priority, typed failures) and the declarative manifest format are specified and frozen for v0.2 — [docs/PROVIDERS.md](docs/PROVIDERS.md), [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) — with a test matrix and a security review |
 | Video player | ✅ | media_kit, custom controls, quality/audio/subtitle menus, speed, resume, auto-next, keyboard shortcuts |
 | Playback test library | ✅ | Two public test streams (Apple, Mux) to verify playback end to end |
 | Settings | ✅ | Appearance, playback, subtitles, audio, sources, AniList status, about/licences |
@@ -124,7 +124,8 @@ lib/
   integrations/   AniList client, streaming provider contracts, playback session
   features/       home, explore, anime_details, library, history, profile,
                   settings, player
-docs/             release policy, provider platform specification
+docs/             release policy, provider platform + manifest specification,
+                  JSON Schema and examples, test matrix, security review, v0.2 plan
 test/             unit, database, provider and widget tests
 ```
 
@@ -142,6 +143,11 @@ Workflow for every milestone: analysis + tests → review → commit and push �
 | [UI_SPEC.md](UI_SPEC.md) | Approved visual direction, tokens, component inventory |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Layers, decisions, data flow, provider/player abstractions |
 | [docs/PROVIDERS.md](docs/PROVIDERS.md) | Provider platform: kinds, capabilities, configuration, integration tiers, errors |
+| [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) | Declarative manifest format (v1) used by user-added sources |
+| [docs/schema/provider-manifest.v1.schema.json](docs/schema/provider-manifest.v1.schema.json) | JSON Schema for that format, with valid and invalid examples beside it |
+| [docs/PROVIDER_TESTS.md](docs/PROVIDER_TESTS.md) | Contract test matrix: manifest schema, adapters, resolution, persistence, Sources UI |
+| [docs/PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md) | Provider threat model, protections and accepted residual risks |
+| [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md) | v0.2 milestones, dependencies, completion criteria and open decisions |
 | [DATABASE.md](DATABASE.md) | Schema, migration policy, data-preservation guarantees |
 | [ROADMAP.md](ROADMAP.md) | Milestones from v0.1 to v1.0 |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each version |
@@ -155,7 +161,7 @@ Workflow for every milestone: analysis + tests → review → commit and push �
 
 NEXUS is a client. Anime metadata and artwork come from the [AniList](https://anilist.co) public GraphQL API. The only playable media shipped with the app are public example streams published by Apple and Mux for HLS testing, clearly labelled `SAMPLE` in the player. The project contains no scrapers for protected services, no DRM circumvention and no hardcoded third-party stream URLs.
 
-Adding a real source means implementing `StreamingProvider` against a provider you are authorised to use, or installing a compatible declarative integration. Doing so requires no changes to the home, details or player screens; the rules are in [docs/PROVIDERS.md](docs/PROVIDERS.md).
+Adding a real source means implementing `StreamingProvider` against a provider you are authorised to use, or installing a compatible declarative integration. Doing so requires no changes to the home, details or player screens; the rules are in [docs/PROVIDERS.md](docs/PROVIDERS.md), the manifest format in [docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md), and its limits in [docs/PROVIDER_SECURITY.md](docs/PROVIDER_SECURITY.md).
 
 ## Credits
 

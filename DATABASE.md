@@ -136,9 +136,11 @@ CREATE INDEX idx_progress_updated ON progress_entries(updated_at DESC);
 
 ## 6. Planned schema v2 — provider platform (not implemented)
 
-Specified by [docs/PROVIDERS.md](docs/PROVIDERS.md) §9 for v0.2. Nothing here
-exists yet; this section records the intended additive migration so the schema
-revision is not improvised later. No existing table or column is altered.
+Specified by [docs/PROVIDERS.md](docs/PROVIDERS.md) §9 for v0.2 and sequenced as
+milestone 2.2a in [docs/V0.2_PLAN.md](docs/V0.2_PLAN.md) §2. Nothing here exists
+yet; this section records the intended additive migration so the schema revision
+is not improvised later. No existing table or column is altered, and the migration
+test runs against a committed v1 database file rather than a freshly created one.
 
 | Table | Columns | Notes |
 |---|---|---|
@@ -156,6 +158,16 @@ Rules for the migration:
    `provider.<id>.<field>`.
 4. `progress_entries.provider_id`/`series_id` remain optional resume hints; no
    foreign key is added, so removing a provider must not cascade.
+5. `provider_manifests.manifest_json` is written only after full validation
+   ([docs/PROVIDER_MANIFEST.md](docs/PROVIDER_MANIFEST.md) §2, §9) and is
+   re-validated when loaded; the row is capped at 512 KiB. A stored manifest that
+   no longer validates disables that provider, and never blocks app start.
+6. `provider_entries.contract_version` and `manifest_version` store what the
+   installed document declared, so an older app can report `requiresNewerApp` or
+   `unsupportedContract` without parsing it.
+7. `provider_entries.config_json` is non-secret only. A row is deleted together
+   with the provider's manifest, cached matches and keystore entries in one
+   transaction-like sequence; nothing else is touched.
 
 ## 7. Future (not implemented)
 

@@ -4,7 +4,7 @@
 
 A cross-platform anime discovery and streaming app built with Flutter — dark, cinematic and fast, with Android as the primary target and Windows as a first-class desktop experience.
 
-Current release line: **v0.2.0-alpha.1** (provider platform foundation).
+Current release line: **v0.2.0-alpha.2** (experimental AniZone streaming source).
 
 ---
 

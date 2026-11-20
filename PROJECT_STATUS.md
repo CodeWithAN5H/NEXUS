@@ -1,8 +1,8 @@
 # NEXUS — Project Status
 
-**Last updated:** 2026-11-19
-**Milestone:** v0.2.0-alpha.1 shipped; **milestone 2.2d (Sources surface, states and diagnostics) implemented** on `main` and not yet released
-**Latest change:** every derived provider state now leads with the action that can change it, user-added sources can be reordered, and opt-in redacted diagnostics explain failures — 41 new hermetic tests, no schema migration (§14)
+**Last updated:** 2026-11-20
+**Milestone:** **v0.2.0-alpha.2 released** — experimental AniZone streaming source (§15); milestone 2.2d (Sources surface, states and diagnostics) shipped in the same build
+**Latest change:** NEXUS can play a real anime episode through the AniZone provider — search, matching, paginated episode lists, HLS with SRT/ASS subtitles and multi-audio — 51 new hermetic tests, no schema migration
 **Source of truth:** https://github.com/CodeWithAN5H/NEXUS (branch `main`)
 **Application id:** `app.nexus` — confirmed permanent 2026-11-17
 
@@ -598,3 +598,18 @@ handles them and NEXUS implements no decryption.
 | 10-bit H.264 on device | ❌ | Some titles (e.g. Naruto 720p, High 10) may exceed hardware decoders; needs a phone check |
 | media_kit audio/subtitle switching from AniZone streams | ❌ | The tracks are advertised from the master's `#EXT-X-MEDIA` groups; switching is verified only by inspection |
 | AniZone availability over time | ❌ | Third-party, unlicensed site; markup and hosting can change without notice |
+
+### Release
+
+| Item | Value |
+|---|---|
+| Tag | `v0.2.0-alpha.2` |
+| `versionName` | `0.2.0-alpha.2` |
+| `versionCode` | `3` (was `2`) — Android only installs a strictly higher code |
+| Package id | `app.nexus` (unchanged) |
+| Upgrade path | Installs over `v0.2.0-alpha.1`; same package id and release key, so library, history, progress and settings are kept. Never uninstall to update. |
+| Build | Existing `.github/workflows/release.yml`, tag-triggered; refuses a debug-signed APK and verifies package id, version and certificate before publishing |
+
+This build exists so the provider can be tested on a real phone. It is **not** a
+statement that streaming works on-device: §15's "Not verified" table still
+applies, and the 10-bit H.264 titles are the likeliest failure point.

@@ -2,7 +2,7 @@
 
 All notable changes to NEXUS are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — AniZone experimental source (milestone 2.3a)
+## [0.2.0-alpha.2] — 2026-11-20 — AniZone experimental source (milestone 2.3a)
 
 NEXUS can now play a real anime episode. `AniZoneProvider` is the first
 third-party streaming source: HLS video, external SRT/ASS subtitles and up to
@@ -33,7 +33,9 @@ play; those titles may fall back to software decoding.
 - AniZone is a third-party, unlicensed site. Availability and markup can change
 without notice; a changed page is reported as a parse failure rather than as "no
 results".
-- Not released: no APK, tag or version bump. A phone test is required first.
+- Released as `v0.2.0-alpha.2` (`versionCode` 3) for on-device testing. It installs
+over `v0.2.0-alpha.1` with the same package id and signing key, so library,
+history, progress and settings are preserved.
 
 ## [Unreleased] — Sources surface, states and diagnostics (milestone 2.2d)
 
@@ -399,3 +401,4 @@ First installable Android build: discovery, details, library, history, settings 
 - Player speech: no subtitle styling beyond size/colour/background; no subtitle delay control.
 
 [0.1.0-alpha]: https://github.com/CodeWithAN5H/NEXUS/releases/tag/v0.1.0-alpha
+[0.2.0-alpha.2]: https://github.com/CodeWithAN5H/NEXUS/releases/tag/v0.2.0-alpha.2

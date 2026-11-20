@@ -23,6 +23,7 @@ import '../../data/providers/app_providers.dart';
 import '../../data/providers/content_providers.dart';
 import '../../integrations/providers/provider_failure.dart';
 import '../../integrations/providers/provider_resolver.dart';
+import '../../integrations/streaming/episode_list_notice.dart';
 import '../../integrations/streaming/streaming_provider.dart';
 import '../player/playback_request.dart';
 
@@ -784,8 +785,25 @@ class _EpisodeList extends ConsumerWidget {
                     'returned no episodes.',
               );
             }
+            // A source that could only load part of a paginated list says so
+            // here rather than presenting a truncated list as complete.
+            final StreamingProvider provider = resolution.provider;
+            final String? notice = provider is EpisodeListNotice
+                ? (provider as EpisodeListNotice).episodeNotice(
+                    resolution.series.seriesId,
+                  )
+                : null;
             return Column(
               children: <Widget>[
+                if (notice != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Text(
+                      notice,
+                      style: AppTypography.caption,
+                      textAlign: TextAlign.start,
+                    ),
+                  ),
                 for (final ProviderEpisode episode in episodes)
                   EpisodeTile(
                     number: episode.number,

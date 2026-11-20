@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../anilist/anilist_metadata_provider.dart';
+import '../streaming/anizone/anizone_provider.dart';
 import '../streaming/sample_provider.dart';
 import '../streaming/streaming_provider.dart';
 import 'metadata_provider.dart';
@@ -14,6 +15,10 @@ import 'provider_registries.dart';
 StreamingProviderRegistry buildStreamingProviderRegistry() {
   return StreamingProviderRegistry(<StreamingProvider>[
     const SamplePlaybackProvider(),
+    // Experimental third-party source. `syncBuiltIns` inserts a row for it on
+    // first launch **disabled**, so no existing user gains a new active source
+    // and no priority, preference or stored configuration changes.
+    AniZoneProvider(),
   ]);
 }
 

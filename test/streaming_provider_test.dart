@@ -184,9 +184,16 @@ void main() {
       final StreamingProviderRegistry registry =
           buildStreamingProviderRegistry();
       expect(registry.byId(SamplePlaybackProvider.providerId), isNotNull);
-      expect(registry.all, hasLength(1));
+      // Two built-ins since 2.3a: the test library and the experimental
+      // AniZone source.
+      expect(registry.all, hasLength(2));
+      expect(registry.byId('anizone'), isNotNull);
       expect(
         registry.compatibilityOf(SamplePlaybackProvider.providerId),
+        ProviderCompatibility.compatible,
+      );
+      expect(
+        registry.compatibilityOf('anizone'),
         ProviderCompatibility.compatible,
       );
     });

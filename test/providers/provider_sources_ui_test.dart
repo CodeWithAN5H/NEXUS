@@ -306,10 +306,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Off'), findsWidgets);
-    expect(find.widgetWithText(SecondaryButton, 'Enable'), findsOneWidget);
+    // Two sources are off: the disabled user source and the built-in AniZone
+    // source, which is installed disabled by default.
+    expect(find.widgetWithText(SecondaryButton, 'Enable'), findsNWidgets(2));
     expect(find.widgetWithText(SecondaryButton, 'Configure'), findsOneWidget);
     expect(find.widgetWithText(SecondaryButton, 'Details'), findsWidgets);
-    // Only the built-in test source can play; the disabled user source cannot.
+    // Only the built-in test source can play; neither disabled source can.
     expect(
       find.widgetWithText(SecondaryButton, 'Test playback'),
       findsOneWidget,

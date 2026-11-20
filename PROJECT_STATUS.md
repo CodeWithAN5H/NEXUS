@@ -560,3 +560,41 @@ change; nothing was released.
 | App-background disposal | ❌ | Not implemented; recorded as the remaining S11 gap |
 | URL manifest import | ❌ | Deliberately later work; paste is the supported mechanism |
 | Real provider interoperability | ❌ | No authorised provider (decision D1); fixtures are synthetic |
+
+## 15. Milestone 2.3a — AniZone experimental streaming source (implemented 2026-11-20)
+
+NEXUS's first real streaming source. The read-only investigation of 20 Nov 2026
+established that AniZone (`anizone.to`) exposes a plain HLS master, external
+SRT/ASS subtitles and multi-language audio through ordinary HTML/JSON parsing —
+no login, CAPTCHA, token derivation, obfuscation or DRM. Segments are standard
+HLS AES-128 whose key URI is published in the playlist, so media_kit/libmpv
+handles them and NEXUS implements no decryption.
+
+### What shipped
+
+| Area | Detail |
+|---|---|
+| Parser | `anizone_parser.dart`: `JSON.parse('…')` argument decoding, search items, series page, Livewire continuation, `vidstackPlayer` payload, HLS master renditions and audio groups, duration/URL normalisation |
+| Client | `anizone_client.dart`: Dio, required mobile User-Agent (the CDN answers 403 without one), 250 ms pacing, 15 s timeout, 4 MiB cap, one retry for GET, cookie jar for the Livewire POST, typed `ProviderFailure`s |
+| Provider | `anizone_provider.dart`: search, scored matching with year/format guards and an ambiguity veto, paginated episode lists with partial-list notice, resolve to one HLS master variant with subtitles, audio tracks and headers |
+| Contract additions | `EpisodeListNotice` — an optional interface; no capability or method changed |
+| Registration | One entry in `provider_registry_bootstrap.dart`; `syncBuiltIns` inserts it **disabled**, so no existing install gains an active source |
+| UI | One line in the episode tab when a list is truncated; the player, Sources, routes and schema are unchanged |
+
+### Verification
+
+| Check | Command | Result |
+|---|---|---|
+| New tests | `flutter test test/providers/anizone_parser_test.dart test/providers/anizone_provider_test.dart` | ✅ **51/51 passed** |
+| Formatting | `dart format --output=none --set-exit-if-changed lib test` | ✅ clean |
+| Static analysis | `flutter analyze` | ✅ **No issues found!** |
+| Full suite | `flutter test` | ✅ **350/350 passed** (299 before + 51 new) |
+
+### Not verified (and why)
+
+| Item | Status | Reason |
+|---|---|---|
+| Real Android playback | ❌ | No device or emulator here (decision D6); the required phone tests are listed in §6 |
+| 10-bit H.264 on device | ❌ | Some titles (e.g. Naruto 720p, High 10) may exceed hardware decoders; needs a phone check |
+| media_kit audio/subtitle switching from AniZone streams | ❌ | The tracks are advertised from the master's `#EXT-X-MEDIA` groups; switching is verified only by inspection |
+| AniZone availability over time | ❌ | Third-party, unlicensed site; markup and hosting can change without notice |

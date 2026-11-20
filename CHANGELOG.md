@@ -2,6 +2,39 @@
 
 All notable changes to NEXUS are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — AniZone experimental source (milestone 2.3a)
+
+NEXUS can now play a real anime episode. `AniZoneProvider` is the first
+third-party streaming source: HLS video, external SRT/ASS subtitles and up to
+three audio tracks, reached with ordinary HTML/JSON parsing. It is unlicensed and
+experimental, it is installed **disabled**, and nothing else in the app changed.
+
+### Added
+
+- `lib/integrations/streaming/anizone/`: `anizone_parser.dart` (pure parsers for
+the search payload, series page, Livewire continuation, player payload and HLS
+master), `anizone_client.dart` (Dio transport with a required User-Agent, 250 ms
+pacing, 15 s timeouts, 4 MiB response cap, one retry and a cookie jar) and
+`anizone_provider.dart` (the `StreamingProvider` adapter).
+- `EpisodeListNotice`: an optional provider interface so a truncated paginated
+list is labelled in the episode tab instead of looking complete.
+- Fixtures captured from live responses (`test/fixtures/anizone/`) and 51 new
+hermetic tests: parsing, escaping, matching and ambiguity, pagination, dedupe,
+playlist and audio parsing, required headers, failures, disposal and
+disabled-by-default registration.
+
+### Notes
+
+- No decryption, DRM handling, WebView, backend or new dependency. The HLS master
+goes straight to media_kit; libmpv performs standard AES-128 HLS decryption using
+the key URIs the playlist publishes.
+- Video is sometimes H.264 High 10, which some Android hardware decoders cannot
+play; those titles may fall back to software decoding.
+- AniZone is a third-party, unlicensed site. Availability and markup can change
+without notice; a changed page is reported as a parse failure rather than as "no
+results".
+- Not released: no APK, tag or version bump. A phone test is required first.
+
 ## [Unreleased] — Sources surface, states and diagnostics (milestone 2.2d)
 
 The Sources screen is now the complete management surface: every derived state

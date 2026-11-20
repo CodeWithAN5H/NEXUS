@@ -22,6 +22,7 @@ Contracts: [PROVIDERS.md](PROVIDERS.md) §3–§8,
 | Resolution | `test/providers/resolver_test.dart` | `ProviderResolver` over several fake providers: ordering, priority, per-title preference, partial failure. |
 | Persistence | `test/providers/provider_store_test.dart` | Drift-backed store: schema v2 migration, restart, disable keeps config, remove clears only its rows. |
 | Widget-level | `test/providers/sources_screen_test.dart` | Sources cards render derived states and generated config forms; no provider-specific fields. |
+| AniZone adapter | `test/providers/anizone_parser_test.dart`, `test/providers/anizone_provider_test.dart` | Captured HTML/JSON fixtures plus a fake `AniZoneClient`; no network. Parsing, matching, pagination, streams, headers, failures, disposal. |
 
 Rules applied to every test in this document:
 
@@ -178,6 +179,30 @@ logic rather than data.
 | T-A10 | AniList behind the interface | `MetadataRepository` compiles against `MetadataProvider`; no file imports `AniListClient` outside `integrations/anilist` | 2.1 |
 
 ---
+
+### 4.1 AniZone (experimental third-party adapter)
+
+Fixtures under `test/fixtures/anizone/` are captured live responses with the
+payload bytes left exactly as served (search items, series page, Livewire
+continuation, episode player payload, HLS master). The client is faked, so the
+suite never touches the network.
+
+| Requirement | Test |
+|---|---|
+| `\u0022` / escaped-slash decoding, duration text | `JavaScript JSON argument decoding` group |
+| Search parsing: slug, title, year, format, episode count, cover | `search page` group |
+| A page without its payload fails instead of returning zero results | `a page without the payload is a failure, not an empty result` |
+| First page, cursor, CSRF token, snapshot | `series page` group |
+| Livewire continuation and its two failure shapes | `Livewire continuation` group |
+| HLS master, SRT subtitles, chapter/storyboard | `episode page` group |
+| Non-HTTPS stream and subtitle URLs are refused | `a non-https stream URL is refused`, `subtitles without a usable URL are dropped, not faked` |
+| Renditions, audio groups, quoted commas, non-playlist input | `HLS master playlist` group |
+| Exact match, sequel, year guard, format guard, ambiguity | `matching` group |
+| Pagination, de-duplication, ordering, partial list notice, page cap | `episodes` group |
+| Master retained, User-Agent present, subtitles/audio mapped, degraded playlist | `resolve` group |
+| Probe readiness and failure isolation | `probe and lifecycle` group |
+| Idempotent disposal | `dispose closes the client once and forgets notices` |
+| Registered, compatible, installed disabled | `registration` group |
 
 ## 5. Resolution and user composition (T-R)
 

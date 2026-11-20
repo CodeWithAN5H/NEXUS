@@ -291,6 +291,42 @@ Adding one:
 No screen, repository, route or database change is required. The registry is the
 only composition point.
 
+#### Tier A, first third-party adapter: AniZone (v0.2, experimental)
+
+`AniZoneProvider` (`lib/integrations/streaming/anizone/`) is NEXUS's first real
+streaming source, and deliberately the smallest one that can work.
+
+- **No claim of authorisation.** AniZone (`anizone.to`) is an unlicensed
+  third-party site. Its `attribution`, its per-stream `notice` above the player
+  and its Sources description all say so; nothing presents it as licensed.
+- **Contract-only.** Search, matching, episodes, streams, subtitles and audio
+tracks sit behind `StreamingProvider`. No screen, schema, route or player file
+needed a provider change. `seasons` is not declared and throws
+`ProviderUnsupported`.
+- **Disabled by default.** `ProviderStore.syncBuiltIns` inserts its row with
+`enabled = false`, so an existing install gains no active source, no priority
+change and no preference change until the user enables it.
+- **No decryption, no DRM, no WebView, no backend.** AniZone serves a normal HLS
+master whose segments are standard AES-128 with the key URI published in the
+playlist itself; media_kit/libmpv performs that protocol step. NEXUS contains no
+decryptor, no key extraction and executes no remote script.
+- **One variant.** The master stays the selected stream so its audio groups
+remain switchable — pinning a rendition would drop audio — which is why
+`qualities` is not declared even though the master lists its renditions.
+- **Partial lists are labelled.** Episode lists continue through the site's own
+Livewire POST (24 episodes per page, capped at 60 pages). If a later page fails,
+the episodes already read are returned and `EpisodeListNotice` tells the episode
+tab the list may be incomplete.
+- **Long lists are loaded up front.** A 220-episode series takes about 7 s; the
+1,180-episode One Piece entry takes about 30 s (50 paced pages) while the normal
+loading skeleton is shown. A load-more pager is future work, not a claim that
+this is fast.
+
+Reliability limits, stated in-app: unlicensed and unofficial; markup can change
+without notice (reported as a parse failure, never as "no results"); video is
+sometimes H.264 High 10, which some Android hardware decoders cannot play; and
+the catalogue is sub-first with dub audio only when the encode carries it.
+
 ### Tier B — user-added declarative integration (v0.2)
 
 A JSON manifest describing an HTTP catalogue, executed by one generic adapter.
@@ -478,6 +514,7 @@ accepted: [PROVIDER_SECURITY.md](PROVIDER_SECURITY.md).
 | Manifest validation | None | ✅ Offline pipeline: parse → schema → templates → paths → semantics → compatibility, all errors reported ([PROVIDER_MANIFEST.md](PROVIDER_MANIFEST.md) §9); stored copies are revalidated at every start and before every provider is built (2.2c) | — |
 | Network egress | No provider-level allowlist | ✅ Manifest adapter: HTTPS only, allowlist on parsed URIs, manual redirects re-checked per hop, decoded-byte cap, timeouts, pacing, one idempotent retry | Nothing further for manifest providers |
 | Provider tests | Contract honesty | ✅ 145 provider tests: contract, axes, resolution, metadata, migration, manifest validation, adapter and security | Sources suites ([PROVIDER_TESTS.md](PROVIDER_TESTS.md)) |
+| Real streaming source | None (sample media only) | ✅ Experimental third-party adapter: AniZone — search, matching, paginated episodes, HLS master, SRT/ASS subtitles, multi-audio, disabled by default (2.3a) | Per-rendition pinning, browser-cookie import, second source |
 | Persistence | `sources.enabled` | ✅ Schema v2 tables + `ProviderStore` (§9), including manifest storage | Configuration and manifest writes on install (2.2c) |
 
 ---

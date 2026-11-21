@@ -109,3 +109,78 @@ class PlaybackAttempts {
   /// Invalidates every in-flight attempt (used on disposal).
   void invalidate() => _current++;
 }
+
+/// How much runway a seek must leave before the end of the media.
+///
+/// mpv parks on the last decoded frame when a file ends, which is up to most of
+/// a second short of the container duration. A seek that lands inside this
+/// window therefore has nothing left to decode and ends the file immediately,
+/// which is the case [clampSeekTarget] avoids.
+const Duration playbackEndTolerance = Duration(seconds: 2);
+
+/// True when the player has nothing left to play.
+///
+/// `media_kit` only restarts on play while its own `completed` flag is set, and
+/// that flag is dropped by `seek()` right after an EOF has raised it. A seek
+/// landing on the duration can therefore end the file without leaving
+/// `completed` set, so the app recognises the end by position as well.
+///
+/// Deliberately strict: only `completed` or a position at (or past) the duration
+/// count. Treating the last two seconds as "ended" would make a pause press
+/// there restart the episode instead of pausing it.
+bool isAtPlaybackEnd({
+  required Duration position,
+  required Duration duration,
+  required bool completed,
+}) {
+  if (completed) return true;
+  if (duration <= Duration.zero) return false;
+  return position >= duration;
+}
+
+/// A seek target that keeps enough runway to finish through playback.
+///
+/// A seek onto the duration (or into mpv's last undecodable fraction) ends the
+/// file during the seek, and `media_kit`'s `seek()` then clears `completed`
+/// again: the episode stops without ever completing, so it neither advances nor
+/// marks itself watched. Moving the target to the last playable point lets the
+/// ending play out normally, so completion and autoplay run exactly as they do
+/// for a natural EOF. A seek into the final two seconds is therefore honoured,
+/// but from the earliest point that still decodes.
+Duration clampSeekTarget({
+  required Duration target,
+  required Duration duration,
+}) {
+  if (target < Duration.zero) return Duration.zero;
+  if (duration <= Duration.zero) return target;
+  final Duration lastPlayable = duration - playbackEndTolerance;
+  if (lastPlayable <= Duration.zero) return Duration.zero;
+  return target > lastPlayable ? lastPlayable : target;
+}
+
+/// What pressing play should do for the current player state.
+enum PlaybackPlayAction {
+  /// Normal transport: play or toggle the running media.
+  transport,
+
+  /// The media is finished: reload it instead of sending an ignored play.
+  restart,
+}
+
+PlaybackPlayAction playbackPlayAction({
+  required Duration position,
+  required Duration duration,
+  required bool completed,
+}) {
+  // `playing` is not consulted: media_kit's `play` sets it back to true even
+  // when mpv has no frames left, and a real pause near the end reports exactly
+  // the same state. The position decides, and a restarted media reports zero.
+  if (isAtPlaybackEnd(
+    position: position,
+    duration: duration,
+    completed: completed,
+  )) {
+    return PlaybackPlayAction.restart;
+  }
+  return PlaybackPlayAction.transport;
+}

@@ -134,6 +134,188 @@ void main() {
     });
   });
 
+  group('isAtPlaybackEnd', () {
+    const Duration duration = Duration(minutes: 24);
+
+    test('a seek that lands on the duration counts as the end', () {
+      expect(
+        isAtPlaybackEnd(
+          position: duration,
+          duration: duration,
+          completed: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('a completed media counts as the end at any position', () {
+      expect(
+        isAtPlaybackEnd(
+          position: const Duration(minutes: 3),
+          duration: duration,
+          completed: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('the last seconds of ordinary playback are not the end', () {
+      // A tolerant end would make a pause press there restart the episode.
+      expect(
+        isAtPlaybackEnd(
+          position: duration - const Duration(milliseconds: 200),
+          duration: duration,
+          completed: false,
+        ),
+        isFalse,
+      );
+      expect(
+        isAtPlaybackEnd(
+          position: duration - playbackEndTolerance,
+          duration: duration,
+          completed: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a position past the duration is the end', () {
+      expect(
+        isAtPlaybackEnd(
+          position: duration + const Duration(seconds: 3),
+          duration: duration,
+          completed: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('ordinary playback is not the end', () {
+      expect(
+        isAtPlaybackEnd(
+          position: const Duration(minutes: 23),
+          duration: duration,
+          completed: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('an unknown duration is never the end', () {
+      expect(
+        isAtPlaybackEnd(
+          position: Duration.zero,
+          duration: Duration.zero,
+          completed: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('clampSeekTarget', () {
+    const Duration duration = Duration(minutes: 24);
+
+    test('seeking to the exact duration stops before the end', () {
+      expect(
+        clampSeekTarget(target: duration, duration: duration),
+        duration - playbackEndTolerance,
+      );
+    });
+
+    test('seeking past the end stops before the end', () {
+      expect(
+        clampSeekTarget(target: duration * 2, duration: duration),
+        duration - playbackEndTolerance,
+      );
+    });
+
+    test('seeking close to the end is left alone', () {
+      final Duration nearEnd = duration - playbackEndTolerance;
+      expect(clampSeekTarget(target: nearEnd, duration: duration), nearEnd);
+    });
+
+    test('a seek into the last seconds lands on the last playable point', () {
+      // Honoured, but from the earliest point that still decodes to the end.
+      expect(
+        clampSeekTarget(
+          target: duration - const Duration(seconds: 1),
+          duration: duration,
+        ),
+        duration - playbackEndTolerance,
+      );
+    });
+
+    test('seeking back from the end is left alone', () {
+      final Duration target = duration - const Duration(minutes: 5);
+      expect(clampSeekTarget(target: target, duration: duration), target);
+    });
+
+    test('negative targets clamp to zero', () {
+      expect(
+        clampSeekTarget(
+          target: const Duration(seconds: -30),
+          duration: duration,
+        ),
+        Duration.zero,
+      );
+    });
+
+    test('an unknown duration is not clamped', () {
+      const Duration target = Duration(minutes: 3);
+      expect(clampSeekTarget(target: target, duration: Duration.zero), target);
+    });
+  });
+
+  group('playbackPlayAction', () {
+    const Duration duration = Duration(minutes: 24);
+
+    test('play at the end restarts instead of sending an ignored play', () {
+      // A dead track can report playing=true, so the position decides.
+      expect(
+        playbackPlayAction(
+          position: duration,
+          duration: duration,
+          completed: false,
+        ),
+        PlaybackPlayAction.restart,
+      );
+    });
+
+    test('play after a completion restarts the episode', () {
+      expect(
+        playbackPlayAction(
+          position: duration,
+          duration: duration,
+          completed: true,
+        ),
+        PlaybackPlayAction.restart,
+      );
+    });
+
+    test('pressing play mid-episode is a normal transport call', () {
+      expect(
+        playbackPlayAction(
+          position: duration - const Duration(minutes: 5),
+          duration: duration,
+          completed: false,
+        ),
+        PlaybackPlayAction.transport,
+      );
+    });
+
+    test('pausing in the final seconds does not restart the episode', () {
+      expect(
+        playbackPlayAction(
+          position: duration - const Duration(seconds: 1),
+          duration: duration,
+          completed: false,
+        ),
+        PlaybackPlayAction.transport,
+      );
+    });
+  });
+
   group('PlaybackRequest labels', () {
     test('player subtitle names the episode, never the object', () {
       expect(_request.label, 'Episode 2');

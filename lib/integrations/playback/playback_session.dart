@@ -41,11 +41,21 @@ class PlaybackSession {
 
   Uri? _loadedUri;
 
+  /// Media currently loaded, kept so the player can be re-opened after EOF.
+  Media? _loadedMedia;
+
   /// URI of the variant currently loaded, for diagnostics.
   Uri? get loadedUri => _loadedUri;
 
   /// Tracks the current load so a superseded load cannot seek a newer session.
   final PlaybackAttempts _attempts = PlaybackAttempts();
+
+  /// True while [_restart] is reopening the media.
+  ///
+  /// `Player.open` resets the position to zero before the file is loaded again,
+  /// so a second press would otherwise look like an ordinary transport call and
+  /// pause the episode that had just been restarted.
+  bool _restarting = false;
 
   /// Token of the load currently owning the player.
   int get generation => _attempts.current;
@@ -71,11 +81,13 @@ class PlaybackSession {
     }
 
     _loadedUri = variant.uri;
-    final int attempt = _attempts.begin();
-    await player.open(
-      Media(variant.uri.toString(), httpHeaders: stream.headers),
-      play: true,
+    final Media media = Media(
+      variant.uri.toString(),
+      httpHeaders: stream.headers,
     );
+    _loadedMedia = media;
+    final int attempt = _attempts.begin();
+    await player.open(media, play: true);
     // A newer load owns the player now: never seek the wrong media.
     if (!_attempts.isCurrent(attempt)) return variant;
 
@@ -112,17 +124,90 @@ class PlaybackSession {
     }
   }
 
-  Future<void> play() => player.play();
+  Future<void> play() async {
+    if (_restarting) return;
+    if (_shouldRestart) {
+      await _restart();
+      return;
+    }
+    await player.play();
+  }
+
   Future<void> pause() => player.pause();
-  Future<void> playOrPause() => player.playOrPause();
-  Future<void> seek(Duration position) => player.seek(position);
-  Future<void> seekBy(Duration delta) {
-    final Duration target = player.state.position + delta;
-    final Duration duration = player.state.duration;
-    final Duration clamped = target < Duration.zero
-        ? Duration.zero
-        : (duration > Duration.zero && target > duration ? duration : target);
-    return player.seek(clamped);
+
+  Future<void> playOrPause() async {
+    if (_restarting) return;
+    if (_shouldRestart) {
+      await _restart();
+      return;
+    }
+    await player.playOrPause();
+  }
+
+  /// Seeks, leaving enough runway for the episode to finish through playback.
+  ///
+  /// Landing on the duration ends the file during the seek and `seek()` clears
+  /// media_kit's `completed` flag again, so the player stops without completing.
+  /// Clamping the target keeps the ending playable, and a seek issued after the
+  /// media already finished reopens it instead of reviving a dead track.
+  Future<void> seek(Duration position) async {
+    final Duration target = clampSeekTarget(
+      target: position,
+      duration: player.state.duration,
+    );
+    // Already finished: a seek cannot revive an unloaded track, reopen it.
+    if (_atEnd) {
+      await _restart(at: target);
+      return;
+    }
+    await player.seek(target);
+  }
+
+  Future<void> seekBy(Duration delta) => seek(player.state.position + delta);
+
+  /// True when the media has played to its end and will not resume by itself.
+  bool get _atEnd => isAtPlaybackEnd(
+    position: player.state.position,
+    duration: player.state.duration,
+    completed: player.state.completed,
+  );
+
+  /// Pressing play on a finished media must restart it, not toggle a dead track.
+  bool get _shouldRestart =>
+      playbackPlayAction(
+        position: player.state.position,
+        duration: player.state.duration,
+        completed: player.state.completed,
+      ) ==
+      PlaybackPlayAction.restart;
+
+  /// Re-opens the loaded media from [at] (the beginning by default).
+  ///
+  /// At EOF mpv has unloaded the file, so `play` only sets `pause=false` on a
+  /// track that no longer exists. Re-opening the same [Media] is the one
+  /// reliable restart. The attempt token makes a superseded restart a no-op, a
+  /// press arriving mid-restart is ignored rather than pausing the reopened
+  /// media, and the playback rate is carried over (mpv keeps `speed` across a
+  /// load; re-applying it keeps the engine and [player] state in agreement).
+  Future<void> _restart({Duration at = Duration.zero}) async {
+    final Media? media = _loadedMedia;
+    if (media == null || _restarting) return;
+    final int attempt = _attempts.begin();
+    final double rate = player.state.rate;
+    _restarting = true;
+    try {
+      await player.open(media, play: true);
+      if (!_attempts.isCurrent(attempt)) return;
+      if (rate != 1) await player.setRate(rate);
+    } on AssertionError {
+      // The player was disposed while reopening: nothing left to restart.
+      return;
+    } finally {
+      _restarting = false;
+    }
+    if (at > Duration.zero) {
+      unawaited(_seekWhenReady(at, attempt: attempt));
+    }
   }
 
   Future<void> setVolume(double value) =>

@@ -52,6 +52,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       <StreamSubscription<Object?>>[];
 
   late PlaybackRequest _request;
+
+  /// Snapshot for presentation (subtitle scale, quality and audio preferences).
+  /// Decisions taken at the end of an episode read the provider instead.
   late AppSettings _settings;
   late final HistoryRepository _history = ref.read(historyRepositoryProvider);
   late final LibraryRepository _library = ref.read(libraryRepositoryProvider);
@@ -75,6 +78,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// Guards async loads so a superseded attempt cannot overwrite newer state.
   final PlaybackAttempts _attempts = PlaybackAttempts();
   bool _disposed = false;
+
+  /// Lets a load advance the episode at most once, even if media_kit reports
+  /// the end more than once.
+  final PlaybackCompletionGate _completions = PlaybackCompletionGate();
 
   /// True once this attempt actually rendered advancing playback.
   bool _everProgressed = false;
@@ -132,7 +139,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
     _subscriptions.add(
       _session.completedStream.listen((bool done) {
-        if (done) unawaited(_onCompleted());
+        if (!done) return;
+        // `completed` is mpv's `eof-reached`, which a stream that stopped early
+        // raises too: only a position at the end counts as the episode ending.
+        if (!isPlaybackCompletion(
+          position: _session.position,
+          duration: _session.duration,
+          completed: true,
+        )) {
+          return;
+        }
+        final int attempt = _attempts.current;
+        if (!_completions.claim(attempt)) return;
+        unawaited(_onCompleted(attempt));
       }),
     );
     _subscriptions.add(
@@ -434,12 +453,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
-  Future<void> _onCompleted() async {
+  /// Handles the genuine completion of the load identified by [attempt].
+  ///
+  /// Autoplay is read from the settings provider here rather than from the
+  /// snapshot taken in [initState]: the switch can be changed — or still be
+  /// loading when the player opens — while the screen is alive, and the episode
+  /// must follow the value in force when it ends.
+  Future<void> _onCompleted(int attempt) async {
+    final int episodeNumber = _request.episodeNumber;
     await _saveProgress();
-    if (!mounted) return;
+    if (!mounted || _disposed) return;
+    // A newer load owns the player now: this completion belongs to history.
+    if (!_attempts.isCurrent(attempt) ||
+        _request.episodeNumber != episodeNumber) {
+      return;
+    }
     final ProviderEpisode? next = _nextEpisode;
-    if (_settings.autoplayNext && next != null) {
-      await _playEpisode(next);
+    final PlaybackCompletionAction action = playbackCompletionAction(
+      autoplayNext: ref.read(appSettingsProvider).autoplayNext,
+      hasNextEpisode: next != null,
+    );
+    if (action == PlaybackCompletionAction.advance) {
+      await _playEpisode(next!);
       return;
     }
     setState(() => _controlsVisible = true);

@@ -316,6 +316,117 @@ void main() {
     });
   });
 
+  group('isPlaybackCompletion', () {
+    const Duration duration = Duration(minutes: 24);
+
+    test('a completion at the end of the media is believed', () {
+      expect(
+        isPlaybackCompletion(
+          position: duration,
+          duration: duration,
+          completed: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('mpv parking a fraction short of the duration still completes', () {
+      expect(
+        isPlaybackCompletion(
+          position: duration - const Duration(milliseconds: 700),
+          duration: duration,
+          completed: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('a completion reported mid-episode is not believed', () {
+      // A dropped connection raises mpv's eof flag; the episode did not end.
+      expect(
+        isPlaybackCompletion(
+          position: const Duration(minutes: 1),
+          duration: duration,
+          completed: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a completion with an unknown duration is not believed', () {
+      expect(
+        isPlaybackCompletion(
+          position: const Duration(minutes: 1),
+          duration: Duration.zero,
+          completed: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a position at the end without the flag is not a completion', () {
+      expect(
+        isPlaybackCompletion(
+          position: duration,
+          duration: duration,
+          completed: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('playbackCompletionAction', () {
+    test('autoplay on with a next episode advances', () {
+      expect(
+        playbackCompletionAction(autoplayNext: true, hasNextEpisode: true),
+        PlaybackCompletionAction.advance,
+      );
+    });
+
+    test('autoplay off with a next episode stays', () {
+      expect(
+        playbackCompletionAction(autoplayNext: false, hasNextEpisode: true),
+        PlaybackCompletionAction.stay,
+      );
+    });
+
+    test('autoplay on at the last episode stays', () {
+      expect(
+        playbackCompletionAction(autoplayNext: true, hasNextEpisode: false),
+        PlaybackCompletionAction.stay,
+      );
+    });
+
+    test('autoplay off at the last episode stays', () {
+      expect(
+        playbackCompletionAction(autoplayNext: false, hasNextEpisode: false),
+        PlaybackCompletionAction.stay,
+      );
+    });
+  });
+
+  group('PlaybackCompletionGate', () {
+    test('the first completion of a load is claimed', () {
+      final PlaybackCompletionGate gate = PlaybackCompletionGate();
+      expect(gate.claim(7), isTrue);
+    });
+
+    test('a repeated completion of the same load cannot advance again', () {
+      final PlaybackCompletionGate gate = PlaybackCompletionGate();
+      expect(gate.claim(7), isTrue);
+      expect(gate.claim(7), isFalse);
+      expect(gate.claim(7), isFalse);
+    });
+
+    test('the next load may complete once too', () {
+      final PlaybackCompletionGate gate = PlaybackCompletionGate();
+      expect(gate.claim(7), isTrue);
+      expect(gate.claim(8), isTrue);
+      expect(gate.claim(8), isFalse);
+    });
+  });
+
   group('PlaybackRequest labels', () {
     test('player subtitle names the episode, never the object', () {
       expect(_request.label, 'Episode 2');

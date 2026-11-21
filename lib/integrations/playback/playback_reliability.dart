@@ -184,3 +184,58 @@ PlaybackPlayAction playbackPlayAction({
   }
   return PlaybackPlayAction.transport;
 }
+
+/// True when a reported completion really is the end of the media.
+///
+/// `media_kit` raises `completed` on every mpv `eof-reached` transition without
+/// looking at the position. mpv reports that flag when it has no data left,
+/// which includes a stream that stopped early — a dropped connection, a
+/// truncated HLS playlist or a demuxer failure — so `completed` alone can
+/// arrive with the episode only a minute in. Requiring a position at the end of
+/// a known duration is what separates a finished episode from a dead stream;
+/// the tail tolerance covers mpv parking on the last decoded frame, which is a
+/// fraction of a second short of the container duration.
+bool isPlaybackCompletion({
+  required Duration position,
+  required Duration duration,
+  required bool completed,
+}) {
+  if (!completed) return false;
+  if (duration <= Duration.zero) return false;
+  return position >= duration - playbackEndTolerance;
+}
+
+/// What a genuine completion should do next.
+enum PlaybackCompletionAction {
+  /// Play the following episode.
+  advance,
+
+  /// Stay on the finished episode: autoplay is off, or there is no next one.
+  stay,
+}
+
+/// The autoplay decision, taken from the settings in force when the episode ends.
+PlaybackCompletionAction playbackCompletionAction({
+  required bool autoplayNext,
+  required bool hasNextEpisode,
+}) {
+  if (autoplayNext && hasNextEpisode) return PlaybackCompletionAction.advance;
+  return PlaybackCompletionAction.stay;
+}
+
+/// Allows at most one advance per completed load.
+///
+/// Each load gets its own attempt token, so a duplicate `completed` event —
+/// media_kit can publish the same end twice, and a late one can arrive while the
+/// next episode is already loading — is recognised and dropped instead of
+/// advancing a second episode.
+class PlaybackCompletionGate {
+  int? _handled;
+
+  /// True the first time [attempt] completes; false for repeats.
+  bool claim(int attempt) {
+    if (_handled == attempt) return false;
+    _handled = attempt;
+    return true;
+  }
+}

@@ -1,0 +1,58 @@
+<html lang="en"><head><title>Anime Index &mdash; AniZone</title></head><body><div wire:snapshot="{&quot;data&quot;:{&quot;title&quot;:&quot;Anime Index&quot;,&quot;search&quot;:&quot;The Apothecary Diaries Season 3&quot;,&quot;sort&quot;:&quot;title-asc&quot;,&quot;type&quot;:&quot;0&quot;,&quot;sortOptions&quot;:[{&quot;title-asc&quot;:&quot;A-Z&quot;,&quot;title-desc&quot;:&quot;Z-A&quot;,&quot;release-asc&quot;:&quot;Earliest Release&quot;,&quot;release-desc&quot;:&quot;Latest Release&quot;,&quot;added-asc&quot;:&quot;First Added&quot;,&quot;added-desc&quot;:&quot;Last Added&quot;},{&quot;s&quot;:&quot;arr&quot;}],&quot;typeOptions&quot;:[[&quot;All&quot;,&quot;Unknown&quot;,&quot;TV Series&quot;,&quot;OVA&quot;,&quot;Movie&quot;,&quot;Other&quot;,&quot;Web&quot;,&quot;TV Special&quot;,&quot;Music Video&quot;],{&quot;s&quot;:&quot;arr&quot;}]},&quot;memo&quot;:{&quot;id&quot;:&quot;aPYdHtBZhkZdDC9eEpLU&quot;,&quot;name&quot;:&quot;pages.anime-index&quot;,&quot;path&quot;:&quot;anime&quot;,&quot;method&quot;:&quot;GET&quot;,&quot;release&quot;:&quot;a-a-a&quot;,&quot;children&quot;:[],&quot;scripts&quot;:[],&quot;assets&quot;:[],&quot;errors&quot;:[],&quot;locale&quot;:&quot;en&quot;},&quot;checksum&quot;:&quot;af04cdbf7c881dac626aa71673e82e587d60b5e863564f29e6c61a7a6fcbd06c&quot;}" wire:effects="{&quot;url&quot;:{&quot;search&quot;:{&quot;as&quot;:null,&quot;use&quot;:&quot;replace&quot;,&quot;alwaysShow&quot;:false,&quot;except&quot;:&quot;&quot;}}}" wire:id="aPYdHtBZhkZdDC9eEpLU" 
+    x-data="{
+        items: [],
+        nextCursor: null,
+        hasMore: false,
+        loading: false,
+        view: 'list',
+
+        get activeGridItems() {
+            return this.view === 'grid' ? this.items : [];
+        },
+
+        get activeListItems() {
+            return this.view === 'list' ? this.items : [];
+        },
+
+        init() {
+            const match = document.cookie.match(/(?:^|; )anime-view=([^;]*)/);
+            if (match) {
+                this.view = decodeURIComponent(match[1]);
+            }
+        },
+
+        setView(newView) {
+            this.view = newView;
+            document.cookie = `anime-view=${newView}; path=/; max-age=31536000; SameSite=Lax`;
+        },
+
+        getTitle(anime) {
+            return window.getTitle(anime.title_list, anime.main_title);
+        },
+
+        isBlurred(anime) {
+            return anime.is_unsafe && (window.getUnsafeState?.().blur ?? false);
+        },
+
+        loadMore() {
+            if (this.loading || !this.hasMore || !this.nextCursor) return;
+            this.loading = true;
+            $wire.loadPage(this.nextCursor);
+        }
+    }"
+    @items-loaded.window="
+        if ($event.detail.items && $event.detail.items.length) {
+            items.push(...$event.detail.items);
+        }
+        nextCursor = $event.detail.nextCursor;
+        hasMore = $event.detail.hasMore;
+        loading = false;
+    "
+    @filters-reset.window="
+        items.splice(0, items.length, ...$event.detail.items);
+        nextCursor = $event.detail.nextCursor;
+        hasMore = $event.detail.hasMore;
+        loading = false;
+    "
+    class="w-full lg:container pb-[109px] md:pb-12 pt-12 px-4 space-y-12"
+><div x-show="items.length === 0"><div>Nothing found.</div></div></div></body></html>

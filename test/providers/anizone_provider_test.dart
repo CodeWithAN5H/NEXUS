@@ -60,6 +60,7 @@ class _FakeAniZoneClient extends AniZoneClient {
   final ProviderFailure? continuationError;
 
   int searchCalls = 0;
+  final List<String> queries = <String>[];
   int continuationCalls = 0;
   int closeCalls = 0;
   bool _closed = false;
@@ -67,6 +68,7 @@ class _FakeAniZoneClient extends AniZoneClient {
   @override
   Future<String> fetchSearch(String query) async {
     searchCalls++;
+    queries.add(query);
     final ProviderFailure? failure = searchError;
     if (failure != null) throw failure;
     final String? body = searchPages[query];
@@ -300,6 +302,80 @@ void main() {
       expect(provider.match(_naruto), throwsA(isA<ProviderParseFailure>()));
     });
 
+    test('retries a sequel title without its season marker', () async {
+      // AniZone answers `The Apothecary Diaries Season 3` with zero results and
+      // stores the season as `… (2026)`, so the marker must be dropped before
+      // the year-bearing entry can be found.
+      const Anime seasonThree = Anime(
+        id: 195516,
+        title: 'The Apothecary Diaries Season 3',
+        romajiTitle: 'Kusuriya no Hitorigoto 3rd Season',
+        englishTitle: 'The Apothecary Diaries Season 3',
+        nativeTitle: '薬屋のひとりごと 第3期',
+        seasonYear: 2026,
+        format: 'TV',
+      );
+      final _FakeAniZoneClient client = _FakeAniZoneClient(
+        searchPages: <String, String>{
+          'The Apothecary Diaries Season 3': _fixture('search_empty.html'),
+          'Kusuriya no Hitorigoto 3rd Season': _fixture('search_empty.html'),
+          '薬屋のひとりごと 第3期': _fixture('search_empty.html'),
+          'The Apothecary Diaries': _fixture('search_apothecary.html'),
+          'Kusuriya no Hitorigoto': _fixture('search_apothecary.html'),
+          '薬屋のひとりごと': _fixture('search_apothecary.html'),
+        },
+      );
+      final AniZoneProvider provider = AniZoneProvider(client: client);
+
+      final ProviderSeries? match = await provider.match(seasonThree);
+
+      expect(match, isNotNull);
+      expect(match!.seriesId, 'hnyvneko');
+      expect(match.year, 2026);
+      expect(client.searchCalls, greaterThan(1));
+    });
+
+    test('the source year suffix does not hide a sequel', () async {
+      // `… (2026)` lowers plain title similarity below the match threshold; the
+      // disambiguating year is compared separately, so it is removed first.
+      const Anime seasonThree = Anime(
+        id: 195516,
+        title: 'The Apothecary Diaries Season 3',
+        seasonYear: 2026,
+        format: 'TV',
+      );
+      final _FakeAniZoneClient client = _FakeAniZoneClient(
+        searchPages: <String, String>{
+          'The Apothecary Diaries Season 3': _fixture('search_empty.html'),
+          'The Apothecary Diaries': _fixture('search_apothecary.html'),
+        },
+      );
+
+      final ProviderSeries? match = await AniZoneProvider(client: client)
+          .match(seasonThree);
+
+      expect(match?.seriesId, 'hnyvneko');
+    });
+
+    test('stacked sequel markers are all dropped before searching', () async {
+      const Anime stacked = Anime(
+        id: 2,
+        title: 'Some Show Season 2 Part 2',
+        seasonYear: 2023,
+        format: 'TV',
+      );
+      final _FakeAniZoneClient client = _FakeAniZoneClient();
+      final AniZoneProvider provider = AniZoneProvider(client: client);
+
+      await expectLater(
+        provider.match(stacked),
+        throwsA(isA<ProviderFailure>()),
+      );
+
+      expect(client.queries.first, 'Some Show Season 2 Part 2');
+      expect(client.queries, contains('Some Show'));
+    });
+
     test('season data is declared unsupported, not invented', () async {
       final AniZoneProvider provider = AniZoneProvider(
         client: _FakeAniZoneClient(),
@@ -412,6 +488,27 @@ void main() {
       expect(provider.episodeNotice('spjuxray'), contains('first 24 episodes'));
     });
 
+    test('a sequel list loads in one page with no notice', () async {
+      const ProviderSeries sequel = ProviderSeries(
+        providerId: 'anizone',
+        seriesId: 'hnyvneko',
+        title: 'Kusuriya no Hitorigoto (2026)',
+        year: 2026,
+      );
+      final _FakeAniZoneClient client = _FakeAniZoneClient(
+        seriesPage: _fixture('series_apothecary_s3.html'),
+      );
+      final AniZoneProvider provider = AniZoneProvider(client: client);
+
+      final List<ProviderEpisode> episodes = await provider.episodes(sequel);
+
+      expect(episodes.length, 8);
+      expect(episodes.first.number, 1);
+      expect(episodes.first.title, 'Locusts');
+      expect(client.continuationCalls, 0);
+      expect(provider.episodeNotice('hnyvneko'), isNull);
+    });
+
     test(
       'a failure on the first page is a failure, not an empty list',
       () async {
@@ -499,6 +596,37 @@ void main() {
       expect(stream.subtitles.length, 2);
     });
 
+    test('a sequel episode resolves on the current video host', () async {
+      final _FakeAniZoneClient client = _FakeAniZoneClient(
+        episodePage: _fixture('episode_apothecary_s3_1.html'),
+        // A master the app cannot read may lose quality labels, never playback.
+        playlist: '',
+      );
+      const ProviderSeries sequel = ProviderSeries(
+        providerId: 'anizone',
+        seriesId: 'hnyvneko',
+        title: 'Kusuriya no Hitorigoto (2026)',
+      );
+      const ProviderEpisode episode = ProviderEpisode(
+        providerId: 'anizone',
+        seriesId: 'hnyvneko',
+        episodeId: '1',
+        number: 1,
+        title: 'Locusts',
+      );
+
+      final EpisodeStream stream = await AniZoneProvider(client: client)
+          .resolve(sequel, episode);
+
+      expect(stream.variants.single.uri.host, 'suzaku.xin-cdn.xyz');
+      expect(stream.variants.single.isDefault, isTrue);
+      expect(stream.subtitles.length, 25);
+      expect(
+        stream.subtitles.map((SubtitleTrackInfo track) => track.language),
+        containsAll(<String>['en', 'de', 'fr']),
+      );
+    });
+
     test('a changed episode page is a parse failure', () async {
       final AniZoneProvider provider = AniZoneProvider(
         client: _FakeAniZoneClient(episodePage: '<div id="player"></div>'),
@@ -536,6 +664,38 @@ void main() {
       expect(snapshot.canServe, isTrue);
       expect(snapshot.message, isNotEmpty);
     });
+
+    test('the count is one sample search, never a catalogue size', () async {
+      final AniZoneProvider provider = AniZoneProvider(
+        client: _FakeAniZoneClient(
+          searchPages: <String, String>{
+            'a': _fixture('search_apothecary.html'),
+          },
+        ),
+      );
+
+      final ProviderStatusSnapshot snapshot = await provider.probe();
+
+      expect(snapshot.availability, ProviderAvailability.ready);
+      expect(snapshot.message, contains('sample search'));
+      expect(snapshot.message, contains('3 catalogue entries'));
+    });
+
+    test(
+      'a reachable source with no results is ready, not unavailable',
+      () async {
+        final AniZoneProvider provider = AniZoneProvider(
+          client: _FakeAniZoneClient(
+            searchPages: <String, String>{'a': _fixture('search_empty.html')},
+          ),
+        );
+
+        final ProviderStatusSnapshot snapshot = await provider.probe();
+
+        expect(snapshot.availability, ProviderAvailability.ready);
+        expect(snapshot.message, contains('no entries'));
+      },
+    );
 
     test('a failing source is unavailable and never throws', () async {
       final AniZoneProvider provider = AniZoneProvider(

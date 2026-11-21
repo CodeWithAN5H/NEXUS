@@ -8,7 +8,9 @@
 ///
 /// A page that no longer contains its payload throws [AniZonePayloadException]
 /// instead of returning an empty list: "the site changed" and "nothing matched"
-/// must never look the same to the user.
+/// must never look the same to the user. The one exception is the site's own
+/// zero-result representation — a results component initialised with
+/// `items: []` — which is a genuine empty result, not a missing payload.
 library;
 
 import 'dart:convert';
@@ -203,9 +205,10 @@ class AniZoneEpisodeSource {
 /// Parses `GET /anime?search=<q>`.
 ///
 /// Throws [AniZonePayloadException] when the payload is missing entirely;
-/// returns an empty list when AniZone reports no matches.
+/// returns an empty list when AniZone reports no matches — a no-match page
+/// carries no `JSON.parse` argument at all, only `items: []`.
 List<AniZoneEntry> parseSearchItems(String html) {
-  final List<Object?> items = _itemsArgument(html);
+  final List<Object?> items = _itemsArgumentOrEmpty(html);
   final List<AniZoneEntry> entries = <AniZoneEntry>[];
   for (final Object? item in items) {
     final AniZoneEntry? entry = _entryFrom(item);
@@ -215,8 +218,17 @@ List<AniZoneEntry> parseSearchItems(String html) {
 }
 
 /// Parses `GET /anime/<slug>` (first episode page plus continuation state).
+///
+/// A series AniZone has no episodes for is the same `items: []` page as an
+/// empty search, so it parses to an empty page instead of a failure.
 AniZoneSeriesPage parseSeriesPage(String html) {
-  final List<Object?> items = _itemsArgument(html);
+  final List<Object?> items = _itemsArgumentOrEmpty(html);
+  if (items.isEmpty) {
+    return const AniZoneSeriesPage(
+      episodes: <AniZoneEpisode>[],
+      hasMore: false,
+    );
+  }
   final List<AniZoneEpisode> episodes = <AniZoneEpisode>[];
   for (final Object? item in items) {
     final AniZoneEpisode? episode = _episodeFrom(item);
@@ -488,12 +500,20 @@ List<AniZoneEpisode> _orderedUnique(List<AniZoneEpisode> episodes) {
   return <AniZoneEpisode>[for (final int number in numbers) byNumber[number]!];
 }
 
-List<Object?> _itemsArgument(String html) {
+/// The embedded items list, or an empty list when the page declares one.
+///
+/// AniZone renders no results as a component whose Alpine state starts at
+/// `items: [], nextCursor: null, hasMore: false`. That is a real answer, so it
+/// must not be reported as a changed layout; a page with neither form is.
+List<Object?> _itemsArgumentOrEmpty(String html) {
   final RegExp pattern = RegExp(
     r"items\s*:\s*JSON\.parse\('((?:[^'\\]|\\.)*)'\)",
   );
   final RegExpMatch? match = pattern.firstMatch(html);
   if (match == null) {
+    if (RegExp(r'items\s*:\s*\[\s*\]').hasMatch(html)) {
+      return const <Object?>[];
+    }
     throw const AniZonePayloadException(
       'Page carried no items payload — AniZone changed its markup.',
     );

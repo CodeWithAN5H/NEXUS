@@ -88,9 +88,11 @@ class AniZoneProvider extends StreamingProvider implements EpisodeListNotice {
       );
       return ProviderStatusSnapshot(
         availability: ProviderAvailability.ready,
+        // One broad sample query, not the whole catalogue: the count shows that
+        // the search page still parses, and is never a catalogue size.
         message: entries.isEmpty
-            ? 'Reachable, but the catalogue returned no entries.'
-            : 'Ready — ${entries.length} catalogue entries visible.',
+            ? 'Reachable, but a sample search returned no entries.'
+            : 'Ready — a sample search returned ${entries.length} catalogue entries.',
         observedAt: DateTime.now(),
       );
     } on ProviderFailure catch (failure) {
@@ -411,33 +413,78 @@ class AniZoneProvider extends StreamingProvider implements EpisodeListNotice {
 
   /// Search queries tried, in order. AniZone matches on its own titles, so the
   /// English and romaji names usually find the same entry.
+  ///
+  /// AniZone stores a sequel under the parent title with a year suffix
+  /// (`Kusuriya no Hitorigoto (2026)`) and its search returns nothing for
+  /// `… Season 3`, so each title is retried without its sequel marker.
   List<String> _queriesFor(List<String> titles) {
     final List<String> queries = <String>[];
+    void add(String? value) {
+      final String query = (value ?? '').trim();
+      if (query.length < 3 || queries.contains(query)) return;
+      queries.add(query);
+    }
+
     for (final String title in titles.take(3)) {
-      if (queries.contains(title)) continue;
-      queries.add(title);
+      add(title);
     }
     if (queries.isEmpty) return const <String>[];
+    for (final String title in titles.take(3)) {
+      add(_withoutSequelMarker(title));
+    }
     // A colon or dash often splits a sequel suffix AniZone stores without it.
     final String head = titles.first.split(RegExp(r'[:\-–]')).first.trim();
-    if (head.length >= 3 &&
-        !queries.contains(head) &&
-        normaliseTitle(head) != normaliseTitle(titles.first)) {
-      queries.add(head);
-    }
+    if (normaliseTitle(head) != normaliseTitle(titles.first)) add(head);
     return queries;
   }
+
+  /// `The Apothecary Diaries Season 3` → `The Apothecary Diaries`.
+  ///
+  /// Markers stack (`… Season 2 Part 2`), so they are removed repeatedly.
+  static String? _withoutSequelMarker(String title) {
+    String stripped = title.trim();
+    for (int pass = 0; pass < 3; pass++) {
+      final String next = stripped
+          .replaceFirst(_sequelMarker, '')
+          .replaceAll(RegExp(r'[\s:\-–—]+$'), '')
+          .trim();
+      if (next == stripped) break;
+      stripped = next;
+    }
+    if (stripped.length < 3) return null;
+    if (normaliseTitle(stripped) == normaliseTitle(title)) return null;
+    return stripped;
+  }
+
+  /// Trailing markers AniZone does not carry in a title: `Season 3`,
+  /// `3rd Season`, `Final Season`, `Part 2`, `S3`, `第3期`.
+  static final RegExp _sequelMarker = RegExp(
+    r'(?:\s*[:\-–—]\s*)?\s*(?:(?:the\s+)?(?:final\s+)?season\s+\d+|(?:the\s+)?final\s+season|part\s+\d+|\d+(?:st|nd|rd|th)\s+season|s\d+|第\s*\d+\s*期)\s*$',
+    caseSensitive: false,
+  );
 
   double _bestTitleScore(List<String> titles, AniZoneEntry entry) {
     double best = 0;
     final List<String> candidates = <String>[entry.title, ...entry.titles];
     for (final String title in titles) {
       for (final String candidate in candidates) {
-        final double score = _similarity(title, candidate);
-        if (score > best) best = score;
+        for (final String variant in <String>{
+          candidate,
+          _withoutSourceYear(candidate),
+        }) {
+          final double score = _similarity(_withoutSourceYear(title), variant);
+          if (score > best) best = score;
+        }
       }
     }
     return best;
+  }
+
+  /// AniZone disambiguates a sequel with a trailing year —
+  /// `Kusuriya no Hitorigoto (2026)`. The year is compared on its own, so it
+  /// must not pull the title comparison below the match threshold.
+  static String _withoutSourceYear(String title) {
+    return title.replaceFirst(RegExp(r'\s*\((?:19|20)\d{2}\)\s*$'), '').trim();
   }
 
   /// Normalised-title similarity: `1` for an exact match, otherwise the Dice

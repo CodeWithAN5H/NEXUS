@@ -85,6 +85,28 @@ void main() {
         throwsA(isA<AniZonePayloadException>()),
       );
     });
+
+    test('a no-result page is an empty result, not a failure', () {
+      // AniZone renders zero matches as `items: []` with no JSON.parse payload.
+      // Treating that as a changed layout disabled the whole source for every
+      // title whose search returned nothing.
+      expect(parseSearchItems(_fixture('search_empty.html')), isEmpty);
+    });
+
+    test('extracts sequel entries that carry a disambiguating year', () {
+      final List<AniZoneEntry> apothecary = parseSearchItems(
+        _fixture('search_apothecary.html'),
+      );
+
+      expect(
+        apothecary.map((AniZoneEntry entry) => entry.slug),
+        orderedEquals(<String>['afo5al90', 'iaw1fmwp', 'hnyvneko']),
+      );
+      final AniZoneEntry third = apothecary.last;
+      expect(third.year, 2026);
+      expect(third.episodeCount, 12);
+      expect(third.titles, contains('The Apothecary Diaries (2026)'));
+    });
   });
 
   group('series page', () {
@@ -115,6 +137,35 @@ void main() {
       expect(page.cursor, isNotEmpty);
       expect(page.csrfToken, isNotEmpty);
       expect(page.snapshot, contains('anime-detail'));
+    });
+
+    test('a series page without the payload is still a failure', () {
+      expect(
+        () => parseSeriesPage('<html><body>maintenance</body></html>'),
+        throwsA(isA<AniZonePayloadException>()),
+      );
+    });
+  });
+
+  group('series page — sequel without paging', () {
+    late AniZoneSeriesPage page;
+
+    setUp(() {
+      page = parseSeriesPage(_fixture('series_apothecary_s3.html'));
+    });
+
+    test('reads the aired episodes in order', () {
+      expect(
+        page.episodes.map((AniZoneEpisode episode) => episode.number),
+        orderedEquals(<int>[1, 2, 3, 4, 5, 6, 7, 8]),
+      );
+      expect(page.episodes.first.title, 'Locusts');
+      expect(page.episodes.first.hasVideos, isTrue);
+    });
+
+    test('a single page needs no continuation', () {
+      expect(page.hasMore, isFalse);
+      expect(page.cursor, isNull);
     });
   });
 
@@ -182,6 +233,25 @@ void main() {
     test('reads chapter and storyboard tracks when present', () {
       expect(source.chapters, isNotNull);
       expect(source.storyboard, isNotNull);
+    });
+
+    test('extracts the current video host and every subtitle language', () {
+      final AniZoneEpisodeSource sequel = parseEpisodeSource(
+        _fixture('episode_apothecary_s3_1.html'),
+      );
+
+      expect(sequel.master.host, 'suzaku.xin-cdn.xyz');
+      expect(sequel.master.path, endsWith('/master.m3u8'));
+      expect(sequel.subtitles.length, 25);
+      expect(
+        sequel.subtitles.map((AniZoneSubtitle track) => track.format).toSet(),
+        containsAll(<String>['ass', 'srt']),
+      );
+      final AniZoneSubtitle defaultTrack = sequel.subtitles.firstWhere(
+        (AniZoneSubtitle track) => track.isDefault,
+      );
+      expect(defaultTrack.language, 'en');
+      expect(defaultTrack.label, 'English');
     });
 
     test('a page without a player payload is a failure', () {

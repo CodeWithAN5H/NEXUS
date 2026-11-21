@@ -90,12 +90,185 @@ class ExploreController extends Notifier<ExploreFilter> {
 final NotifierProvider<ExploreController, ExploreFilter> exploreFilterProvider =
     NotifierProvider<ExploreController, ExploreFilter>(ExploreController.new);
 
-/// Results for the current filter. Text search is debounced by the screen.
-final FutureProvider<MediaPage> exploreResultsProvider =
-    FutureProvider<MediaPage>((Ref ref) {
-      final ExploreFilter filter = ref.watch(exploreFilterProvider);
-      return ref.watch(metadataRepositoryProvider).browse(filter, perPage: 24);
-    });
+/// Results for the current Explore filter, accumulated across pages.
+///
+/// Explore is the only paged surface: the filter is the reset boundary, so a
+/// new query or facet replaces this accumulation instead of extending it.
+class ExploreResults {
+  const ExploreResults({
+    required this.items,
+    required this.filter,
+    required this.page,
+    required this.hasNextPage,
+    this.loadingMore = false,
+    this.moreFailure,
+  });
+
+  /// Every title loaded for [filter], de-duplicated by [Anime.id] in page order.
+  final List<Anime> items;
+
+  /// The filter these items belong to. A screen can compare it with the live
+  /// filter to tell whether it is looking at stale results.
+  final ExploreFilter filter;
+
+  /// Last successfully loaded page (1-based).
+  final int page;
+
+  /// Whether another page exists within both the source's and AniList's limits.
+  final bool hasNextPage;
+
+  /// True while the next page is being fetched — the items already shown stay
+  /// on screen.
+  final bool loadingMore;
+
+  /// Failure of the *last append only*. Earlier pages are kept, and the footer
+  /// retries the append instead of emptying the grid.
+  final Object? moreFailure;
+
+  bool get isEmpty => items.isEmpty;
+
+  bool get hasMoreFailure => moreFailure != null;
+
+  ExploreResults copyWith({
+    List<Anime>? items,
+    int? page,
+    bool? hasNextPage,
+    bool? loadingMore,
+    Object? moreFailure,
+    bool clearMoreFailure = false,
+  }) {
+    return ExploreResults(
+      items: items ?? this.items,
+      filter: filter,
+      page: page ?? this.page,
+      hasNextPage: hasNextPage ?? this.hasNextPage,
+      loadingMore: loadingMore ?? this.loadingMore,
+      moreFailure: clearMoreFailure ? null : (moreFailure ?? this.moreFailure),
+    );
+  }
+}
+
+/// Paged Explore results. Text search is still debounced by the screen.
+///
+/// Invariants:
+/// * page 1 is loaded by [build], so a filter change replaces the accumulation
+///   and any append still in flight for the previous filter is dropped;
+/// * [loadMore] is a no-op while a page is loading, at the end of the list, or
+///   when the live filter no longer matches the loaded one — every scroll
+///   notification can call it without producing duplicate requests;
+/// * appended items are de-duplicated by [Anime.id]: AniList re-ranks between
+///   requests, so one title can legitimately appear on two pages.
+class ExploreResultsController extends AsyncNotifier<ExploreResults> {
+  /// Posters per request — fills a phone grid and stays under AniList's cap of
+  /// 50 results per page.
+  static const int pageSize = 24;
+
+  /// AniList refuses requests beyond 5 000 entries of depth, answering HTTP 400
+  /// (`Page depth exceeds maximum allowed…`). Paging stops before that request
+  /// is made, so the list ends quietly instead of failing.
+  static const int maxEntries = 5000;
+
+  /// Bumped by every rebuild, so a page that resolves after the filter changed
+  /// can never be merged into the new results.
+  int _generation = 0;
+  bool _appending = false;
+
+  @override
+  Future<ExploreResults> build() async {
+    final ExploreFilter filter = ref.watch(exploreFilterProvider);
+    _generation++;
+    _appending = false;
+
+    final MediaPage first = await ref
+        .watch(metadataRepositoryProvider)
+        .browse(filter, page: 1, perPage: pageSize);
+
+    return ExploreResults(
+      items: _append(const <Anime>[], first.items),
+      filter: filter,
+      page: 1,
+      hasNextPage: first.hasNextPage && _pageAllowed(2),
+    );
+  }
+
+  /// Appends the next page. Safe to call from every scroll notification.
+  Future<void> loadMore() async {
+    final ExploreResults? current = state.value;
+    if (current == null) return; // Initial load, or page 1 failed.
+    if (current.loadingMore || _appending) return;
+    if (!current.hasNextPage) return;
+
+    final ExploreFilter filter = ref.read(exploreFilterProvider);
+    if (filter != current.filter) return;
+
+    final int nextPage = current.page + 1;
+    if (!_pageAllowed(nextPage)) return;
+
+    final int generation = _generation;
+    _appending = true;
+    state = AsyncData<ExploreResults>(
+      current.copyWith(loadingMore: true, clearMoreFailure: true),
+    );
+
+    try {
+      final MediaPage page = await ref
+          .read(metadataRepositoryProvider)
+          .browse(filter, page: nextPage, perPage: pageSize);
+      if (!_isCurrent(generation, filter)) return;
+      state = AsyncData<ExploreResults>(
+        current.copyWith(
+          items: _append(current.items, page.items),
+          page: nextPage,
+          hasNextPage: page.hasNextPage && _pageAllowed(nextPage + 1),
+          loadingMore: false,
+        ),
+      );
+    } catch (error) {
+      // A failed append keeps every page already shown; the footer retries it.
+      if (!_isCurrent(generation, filter)) return;
+      state = AsyncData<ExploreResults>(
+        current.copyWith(loadingMore: false, moreFailure: error),
+      );
+    } finally {
+      _appending = false;
+    }
+  }
+
+  /// Retries only the failed append, leaving the loaded pages untouched.
+  Future<void> retryLoadMore() async {
+    final ExploreResults? current = state.value;
+    if (current == null || !current.hasMoreFailure) return;
+    state = AsyncData<ExploreResults>(current.copyWith(clearMoreFailure: true));
+    await loadMore();
+  }
+
+  bool _isCurrent(int generation, ExploreFilter filter) {
+    if (!ref.mounted) return false;
+    if (generation != _generation) return false;
+    return ref.read(exploreFilterProvider) == filter;
+  }
+
+  /// AniList's depth cap, applied to the page that would be requested next.
+  static bool _pageAllowed(int page) => page * pageSize <= maxEntries;
+
+  /// Appends [page] to [items], skipping ids already present and keeping order.
+  static List<Anime> _append(List<Anime> items, List<Anime> page) {
+    if (page.isEmpty) return items;
+    final Set<int> seen = <int>{for (final Anime anime in items) anime.id};
+    final List<Anime> merged = <Anime>[...items];
+    for (final Anime anime in page) {
+      if (!seen.add(anime.id)) continue;
+      merged.add(anime);
+    }
+    return List<Anime>.unmodifiable(merged);
+  }
+}
+
+final AsyncNotifierProvider<ExploreResultsController, ExploreResults>
+exploreResultsProvider =
+    AsyncNotifierProvider<ExploreResultsController, ExploreResults>(
+      ExploreResultsController.new,
+    );
 
 final FutureProvider<List<String>> genresProvider =
     FutureProvider<List<String>>((Ref ref) {

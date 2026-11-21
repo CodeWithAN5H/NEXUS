@@ -18,7 +18,6 @@ import '../../data/models/anime.dart';
 import '../../data/models/explore_filter.dart';
 import '../../data/providers/app_providers.dart';
 import '../../data/providers/content_providers.dart';
-import '../../data/models/media_page.dart';
 
 /// Search, filter and browse catalogue metadata.
 class ExploreScreen extends ConsumerStatefulWidget {
@@ -70,7 +69,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final ExploreFilter filter = ref.watch(exploreFilterProvider);
-    final AsyncValue<MediaPage> results = ref.watch(exploreResultsProvider);
+    final AsyncValue<ExploreResults> results = ref.watch(
+      exploreResultsProvider,
+    );
     final AsyncValue<List<String>> genres = ref.watch(genresProvider);
     final double gutter = context.pageGutter;
     final int columns = context.gridColumns();
@@ -78,175 +79,293 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     final double tileWidth =
         (available - AppSpacing.sm * (columns - 1)) / columns;
 
-    return CustomScrollView(
-      slivers: <Widget>[
-        SliverToBoxAdapter(
-          child: NexusPagePadding(
-            top: AppSpacing.md,
-            child: Row(
-              children: <Widget>[
-                Text('Explore', style: AppTypography.headline),
-                const Spacer(),
-                _FilterButton(
-                  count: filter.activeFacetCount,
-                  onPressed: () => showFilterPanel(context),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: NexusPagePadding(
-            top: AppSpacing.md,
-            child: NexusSearchField(
-              controller: _searchController,
-              onChanged: _onQueryChanged,
-              onSubmitted: _onSubmitted,
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: NexusPagePadding(
-            top: AppSpacing.sm,
-            child: SizedBox(
-              height: 36,
-              child: AsyncValueView<List<String>>(
-                value: genres,
-                compact: true,
-                loading: const LoadingSkeleton(height: 32),
-                onRetry: () => ref.invalidate(genresProvider),
-                builder: (BuildContext context, List<String> items) =>
-                    ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      clipBehavior: Clip.none,
-                      itemCount: items.length,
-                      separatorBuilder: (BuildContext context, int _) =>
-                          const SizedBox(width: AppSpacing.xs),
-                      itemBuilder: (BuildContext context, int index) {
-                        final String genre = items[index];
-                        return GenreChip(
-                          label: genre,
-                          dense: true,
-                          selected: filter.genres.contains(genre),
-                          onTap: () => ref
-                              .read(exploreFilterProvider.notifier)
-                              .toggleGenre(genre),
-                        );
-                      },
-                    ),
-              ),
-            ),
-          ),
-        ),
-        if (!filter.hasSearchQuery)
-          SliverToBoxAdapter(
-            child: _RecentSearches(onSelected: _applyRecentSearch),
-          ),
-        SliverToBoxAdapter(
-          child: NexusPagePadding(
-            top: AppSpacing.sm,
-            child: Row(
-              children: <Widget>[
-                Text(
-                  filter.hasSearchQuery
-                      ? 'Results for “${filter.query.trim()}”'
-                      : 'Popular now',
-                  style: AppTypography.sectionTitle,
-                ),
-                const Spacer(),
-                if (filter.hasActiveFilters)
-                  Padding(
-                    padding: const EdgeInsets.only(left: AppSpacing.xs),
-                    child: Text(
-                      '${filter.activeFacetCount} filter'
-                      '${filter.activeFacetCount == 1 ? '' : 's'}',
-                      style: AppTypography.caption,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        switch (results) {
-          AsyncData<MediaPage>(:final MediaPage value) =>
-            value.items.isEmpty
-                ? SliverToBoxAdapter(
-                    child: EmptyState(
-                      icon: Icons.search_off_rounded,
-                      title: 'No titles found',
-                      message: filter.hasSearchQuery
-                          ? 'Nothing matched “${filter.query.trim()}”. Try a '
-                                'different spelling or clear your filters.'
-                          : 'No titles matched the selected filters.',
-                      action: SecondaryButton(
-                        label: 'Clear filters',
-                        icon: Icons.filter_alt_off_rounded,
-                        onPressed: () {
-                          _searchController.clear();
-                          ref.read(exploreFilterProvider.notifier).reset();
-                        },
-                      ),
-                    ),
-                  )
-                : SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                      gutter,
-                      AppSpacing.sm,
-                      gutter,
-                      AppSpacing.xl,
-                    ),
-                    sliver: SliverGrid(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columns,
-                        crossAxisSpacing: AppSpacing.sm,
-                        mainAxisSpacing: AppSpacing.md,
-                        childAspectRatio: tileWidth / (tileWidth * 1.5 + 46),
-                      ),
-                      delegate: SliverChildBuilderDelegate((
-                        BuildContext context,
-                        int index,
-                      ) {
-                        final Anime anime = value.items[index];
-                        return AnimePoster(
-                          anime: anime,
-                          width: tileWidth,
-                          onTap: () => context.push('/anime/${anime.id}'),
-                        );
-                      }, childCount: value.items.length),
-                    ),
-                  ),
-          AsyncError<MediaPage>(:final Object error) => SliverToBoxAdapter(
-            child: AsyncValueView<MediaPage>(
-              value: AsyncError<MediaPage>(error, StackTrace.current),
-              onRetry: () {
-                ref.read(metadataRepositoryProvider).invalidate('browse:');
-                ref.invalidate(exploreResultsProvider);
-              },
-              builder: (BuildContext context, MediaPage _) =>
-                  const SizedBox.shrink(),
-            ),
-          ),
-          _ => SliverPadding(
-            padding: EdgeInsets.all(gutter),
-            sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                crossAxisSpacing: AppSpacing.sm,
-                mainAxisSpacing: AppSpacing.md,
-                childAspectRatio: tileWidth / (tileWidth * 1.5 + 46),
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (BuildContext context, int index) => LoadingSkeleton(
-                  width: tileWidth,
-                  height: tileWidth * 1.5,
-                  borderRadius: AppRadius.posterRadius,
-                ),
-                childCount: columns * 3,
-              ),
-            ),
-          ),
+    // Both notifications are needed: a scroll reaches the end, while a metrics
+    // notification fills a window too tall for the first page to scroll at all.
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (ScrollMetricsNotification notification) {
+        // Only the page itself: the genre chips are a nested scrollable.
+        if (notification.depth != 0) return false;
+        _maybeLoadMore(notification.metrics, fromScroll: false);
+        return false;
+      },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (ScrollNotification notification) {
+          if (notification.depth != 0) return false;
+          _maybeLoadMore(notification.metrics, fromScroll: true);
+          return false;
         },
-      ],
+        child: CustomScrollView(
+          slivers: <Widget>[
+            SliverToBoxAdapter(
+              child: NexusPagePadding(
+                top: AppSpacing.md,
+                child: Row(
+                  children: <Widget>[
+                    Text('Explore', style: AppTypography.headline),
+                    const Spacer(),
+                    _FilterButton(
+                      count: filter.activeFacetCount,
+                      onPressed: () => showFilterPanel(context),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: NexusPagePadding(
+                top: AppSpacing.md,
+                child: NexusSearchField(
+                  controller: _searchController,
+                  onChanged: _onQueryChanged,
+                  onSubmitted: _onSubmitted,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: NexusPagePadding(
+                top: AppSpacing.sm,
+                child: SizedBox(
+                  height: 36,
+                  child: AsyncValueView<List<String>>(
+                    value: genres,
+                    compact: true,
+                    loading: const LoadingSkeleton(height: 32),
+                    onRetry: () => ref.invalidate(genresProvider),
+                    builder: (BuildContext context, List<String> items) =>
+                        ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          clipBehavior: Clip.none,
+                          itemCount: items.length,
+                          separatorBuilder: (BuildContext context, int _) =>
+                              const SizedBox(width: AppSpacing.xs),
+                          itemBuilder: (BuildContext context, int index) {
+                            final String genre = items[index];
+                            return GenreChip(
+                              label: genre,
+                              dense: true,
+                              selected: filter.genres.contains(genre),
+                              onTap: () => ref
+                                  .read(exploreFilterProvider.notifier)
+                                  .toggleGenre(genre),
+                            );
+                          },
+                        ),
+                  ),
+                ),
+              ),
+            ),
+            if (!filter.hasSearchQuery)
+              SliverToBoxAdapter(
+                child: _RecentSearches(onSelected: _applyRecentSearch),
+              ),
+            SliverToBoxAdapter(
+              child: NexusPagePadding(
+                top: AppSpacing.sm,
+                child: Row(
+                  children: <Widget>[
+                    Text(
+                      filter.hasSearchQuery
+                          ? 'Results for “${filter.query.trim()}”'
+                          : 'Popular now',
+                      style: AppTypography.sectionTitle,
+                    ),
+                    const Spacer(),
+                    if (filter.hasActiveFilters)
+                      Padding(
+                        padding: const EdgeInsets.only(left: AppSpacing.xs),
+                        child: Text(
+                          '${filter.activeFacetCount} filter'
+                          '${filter.activeFacetCount == 1 ? '' : 's'}',
+                          style: AppTypography.caption,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            ...switch (results) {
+              AsyncData<ExploreResults>(:final ExploreResults value) =>
+                value.items.isEmpty
+                    ? <Widget>[
+                        SliverToBoxAdapter(
+                          child: EmptyState(
+                            icon: Icons.search_off_rounded,
+                            title: 'No titles found',
+                            message: filter.hasSearchQuery
+                                ? 'Nothing matched “${filter.query.trim()}”. Try a '
+                                      'different spelling or clear your filters.'
+                                : 'No titles matched the selected filters.',
+                            action: SecondaryButton(
+                              label: 'Clear filters',
+                              icon: Icons.filter_alt_off_rounded,
+                              onPressed: () {
+                                _searchController.clear();
+                                ref
+                                    .read(exploreFilterProvider.notifier)
+                                    .reset();
+                              },
+                            ),
+                          ),
+                        ),
+                      ]
+                    : <Widget>[
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            gutter,
+                            AppSpacing.sm,
+                            gutter,
+                            AppSpacing.sm,
+                          ),
+                          sliver: SliverGrid(
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: columns,
+                                  crossAxisSpacing: AppSpacing.sm,
+                                  mainAxisSpacing: AppSpacing.md,
+                                  childAspectRatio:
+                                      tileWidth / (tileWidth * 1.5 + 46),
+                                ),
+                            delegate: SliverChildBuilderDelegate((
+                              BuildContext context,
+                              int index,
+                            ) {
+                              final Anime anime = value.items[index];
+                              return AnimePoster(
+                                anime: anime,
+                                width: tileWidth,
+                                onTap: () => context.push('/anime/${anime.id}'),
+                              );
+                            }, childCount: value.items.length),
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: _ExploreFooter(
+                            results: value,
+                            onRetry: () => ref
+                                .read(exploreResultsProvider.notifier)
+                                .retryLoadMore(),
+                          ),
+                        ),
+                      ],
+              AsyncError<ExploreResults>(:final Object error) => <Widget>[
+                SliverToBoxAdapter(
+                  child: AsyncValueView<ExploreResults>(
+                    value: AsyncError<ExploreResults>(
+                      error,
+                      StackTrace.current,
+                    ),
+                    onRetry: () {
+                      ref
+                          .read(metadataRepositoryProvider)
+                          .invalidate('browse:');
+                      ref.invalidate(exploreResultsProvider);
+                    },
+                    builder: (BuildContext context, ExploreResults _) =>
+                        const SizedBox.shrink(),
+                  ),
+                ),
+              ],
+              _ => <Widget>[
+                SliverPadding(
+                  padding: EdgeInsets.all(gutter),
+                  sliver: SliverGrid(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      crossAxisSpacing: AppSpacing.sm,
+                      mainAxisSpacing: AppSpacing.md,
+                      childAspectRatio: tileWidth / (tileWidth * 1.5 + 46),
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (BuildContext context, int index) => LoadingSkeleton(
+                        width: tileWidth,
+                        height: tileWidth * 1.5,
+                        borderRadius: AppRadius.posterRadius,
+                      ),
+                      childCount: columns * 3,
+                    ),
+                  ),
+                ),
+              ],
+            },
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Prefetches the next page once the user is within 800 px of the end.
+  ///
+  /// The controller ignores calls that are already in flight, past the end, or
+  /// for another filter, so every notification can call this safely.
+  void _maybeLoadMore(ScrollMetrics metrics, {required bool fromScroll}) {
+    if (metrics.axis != Axis.vertical) return;
+    if (metrics.extentAfter >= 800) return;
+    // Without a scroll, only fill a window the loaded page could not fill at all
+    // (a desktop grid with nothing to scroll yet). Loading-state and pre-layout
+    // metrics carry no content dimensions, so they never prefetch a page nobody
+    // has scrolled to.
+    if (!fromScroll) {
+      final ExploreResults? loaded = ref.read(exploreResultsProvider).value;
+      if (loaded == null || loaded.isEmpty) return;
+      if (metrics.viewportDimension <= 0 || metrics.maxScrollExtent > 0) return;
+    }
+    unawaited(ref.read(exploreResultsProvider.notifier).loadMore());
+  }
+}
+
+/// Footer under the Explore grid: appending, retry, or the quiet end state.
+class _ExploreFooter extends StatelessWidget {
+  const _ExploreFooter({required this.results, required this.onRetry});
+
+  final ExploreResults results;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (results.isEmpty) return const SizedBox.shrink();
+
+    final Widget child;
+    if (results.hasMoreFailure) {
+      child = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Flexible(
+            child: Text(
+              'Could not load more titles.',
+              style: AppTypography.caption,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          SecondaryButton(
+            label: 'Retry',
+            icon: Icons.refresh_rounded,
+            onPressed: onRetry,
+          ),
+        ],
+      );
+    } else if (results.loadingMore) {
+      child = const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    } else if (!results.hasNextPage) {
+      child = Text(
+        "You've reached the end",
+        style: AppTypography.caption,
+        textAlign: TextAlign.center,
+      );
+    } else {
+      child = const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.lg,
+      ),
+      child: Center(child: child),
     );
   }
 }

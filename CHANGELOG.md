@@ -37,6 +37,40 @@ results".
 over `v0.2.0-alpha.1` with the same package id and signing key, so library,
 history, progress and settings are preserved.
 
+## [Unreleased] — Explore pagination and infinite scrolling (milestone 2.4a)
+
+Explore now pages the catalogue instead of stopping at the first 24 titles.
+Results accumulate across pages in one immutable state, scrolling near the end
+appends the next page, and the list ends with a quiet "You've reached the end"
+rather than an error at AniList's 5 000-entry depth limit. No Explore redesign,
+no metadata-contract change and no new dependency.
+
+### Added
+
+- `ExploreResults` + `ExploreResultsController`
+  (`lib/data/providers/content_providers.dart`): page 1 loaded per filter, guarded
+  `loadMore()` / `retryLoadMore()`, accumulation de-duplicated by `Anime.id` in
+  page order, stale pages rejected by filter *and* generation, and a depth stop
+  before AniList's 5 000-entry ceiling (page 208 of 24).
+- Explore footer (`lib/features/explore/explore_screen.dart`): appending spinner,
+  "Could not load more titles." with Retry, and the end-of-results line. Existing
+  tiles stay visible while a page loads; the skeleton is initial-load only.
+  Loading is triggered at `extentAfter < 800`, ignores nested scrollables and
+  pre-layout metrics, and also fills a window the first page cannot fill.
+- 14 new tests: 12 paged-state and repository tests
+  (`test/providers/explore_paging_test.dart`) and 2 Explore widget tests
+  (`test/explore_paging_widget_test.dart`). `FakeMetadataProvider` gained
+  scripted per-page results, page gates, per-page failures and request counters.
+
+### Notes
+
+- A failed append keeps every page already shown and retries from the footer; it
+  never replaces the grid with a screen-level error.
+- AniList reports `hasNextPage: true` one page past what it will serve (HTTP 400
+  "Page depth exceeds maximum"), so the client stops on its own depth rule and the
+  request is never made.
+- Home rails are unchanged and are not paginated; "See all" still opens Explore.
+
 ## [Unreleased] — Sources surface, states and diagnostics (milestone 2.2d)
 
 The Sources screen is now the complete management surface: every derived state

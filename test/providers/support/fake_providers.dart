@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:nexus/core/errors/app_failure.dart';
 import 'package:nexus/data/models/anime.dart';
@@ -185,13 +187,33 @@ class FakeMetadataProvider extends MetadataProvider {
     this.id = 'fake.metadata',
     this.items = const <Anime>[],
     this.failure,
-  });
+    this.pageResults = const <int, MediaPage>{},
+    Map<int, Object>? pageFailures,
+    Map<int, Completer<void>>? pageGates,
+  }) : pageFailures = pageFailures ?? <int, Object>{},
+       pageGates = pageGates ?? <int, Completer<void>>{};
 
   @override
   final String id;
 
   final List<Anime> items;
   final Object? failure;
+
+  /// Scripted `browse` results by page. Empty keeps the pre-paging behaviour:
+  /// every browse answers [items] with no next page.
+  final Map<int, MediaPage> pageResults;
+
+  /// A browse for one of these pages throws. A test removes the entry to
+  /// simulate a retry that succeeds.
+  final Map<int, Object> pageFailures;
+
+  /// A browse for one of these pages waits for the completer — used to observe
+  /// in-flight appends and stale responses.
+  final Map<int, Completer<void>> pageGates;
+
+  int browseCalls = 0;
+  final List<int> pagesRequested = <int>[];
+  final List<ExploreFilter> filtersRequested = <ExploreFilter>[];
 
   bool disposed = false;
   int detailCalls = 0;
@@ -249,7 +271,18 @@ class FakeMetadataProvider extends MetadataProvider {
     ExploreFilter filter, {
     int page = 1,
     int perPage = 24,
-  }) async => _page();
+  }) async {
+    browseCalls++;
+    pagesRequested.add(page);
+    filtersRequested.add(filter);
+    if (pageResults.isEmpty) return _page();
+
+    await pageGates[page]?.future;
+    final Object? pageFailure = pageFailures[page];
+    if (pageFailure != null) throw pageFailure;
+    return pageResults[page] ??
+        const MediaPage(items: <Anime>[], hasNextPage: false);
+  }
 
   @override
   Future<MediaPage> search(

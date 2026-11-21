@@ -164,6 +164,13 @@ String _livewire({
   });
 }
 
+/// Builds a search page the way AniZone nests it: JSON inside a JS string
+/// inside an Alpine `x-data` attribute.
+String _searchPage(List<Map<String, Object?>> items) {
+  final String payload = jsonEncode(items).replaceAll('"', r'\u0022');
+  return '<div x-data="{ items: JSON.parse(\'$payload\') }"></div>';
+}
+
 void main() {
   group('search', () {
     test('maps every entry onto the provider contract', () async {
@@ -272,6 +279,130 @@ void main() {
 
       expect(await provider.match(_naruto), isNull);
     });
+
+    test('an AniList ONA matches the same series labelled "TV Series"', () async {
+      // Magical Explorer (AniList 169581) is an ONA there, while AniZone calls
+      // the same series `TV Series`: the two labels describe one episodic
+      // series, so the format boundary must not discard an exact match.
+      const Anime magicalExplorer = Anime(
+        id: 169581,
+        title: 'Magical Explorer',
+        romajiTitle:
+            'Magical★Explorer: Eroge no Yuujin Chara ni Tensei Shitakedo, '
+            'Game Chishiki Tsukatte Jiyuu ni Ikiru',
+        englishTitle: 'Magical Explorer',
+        nativeTitle: 'マジカル★エクスプローラー',
+        seasonYear: 2026,
+        format: 'ONA',
+      );
+      final _FakeAniZoneClient client = _FakeAniZoneClient(
+        searchPages: <String, String>{
+          'Magical Explorer': _fixture('search_magical_explorer.html'),
+        },
+      );
+
+      final ProviderSeries? match = await AniZoneProvider(client: client)
+          .match(magicalExplorer);
+
+      expect(match, isNotNull);
+      expect(match!.seriesId, 'o7j39lwx');
+      expect(match.title, 'Magical Explorer');
+      expect(match.year, 2026);
+    });
+
+    test('a TV title matches the same series labelled "Web"', () async {
+      final _FakeAniZoneClient client = _FakeAniZoneClient(
+        searchPages: <String, String>{
+          'Naruto': _searchPage(<Map<String, Object?>>[
+            <String, Object?>{
+              'slug': 'naruto-web',
+              'main_title': 'Naruto',
+              'type': 'Web',
+            },
+          ]),
+        },
+      );
+
+      final ProviderSeries? match = await AniZoneProvider(client: client)
+          .match(_naruto);
+
+      expect(match?.seriesId, 'naruto-web');
+    });
+
+    test('movie, OVA and special entries are still not matched', () async {
+      for (final String type in <String>['Movie', 'OVA', 'Special']) {
+        final _FakeAniZoneClient client = _FakeAniZoneClient(
+          searchPages: <String, String>{
+            'Naruto': _searchPage(<Map<String, Object?>>[
+              <String, Object?>{
+                'slug': 'naruto-other',
+                'main_title': 'Naruto',
+                'type': type,
+              },
+            ]),
+          },
+        );
+
+        expect(
+          await AniZoneProvider(client: client).match(_naruto),
+          isNull,
+          reason: 'a $type entry must not be matched to a TV series',
+        );
+      }
+    });
+
+    test('equally plausible TV and web candidates stay ambiguous', () async {
+      final _FakeAniZoneClient client = _FakeAniZoneClient(
+        searchPages: <String, String>{
+          'Naruto': _searchPage(<Map<String, Object?>>[
+            <String, Object?>{
+              'slug': 'naruto-tv',
+              'main_title': 'Naruto',
+              'type': 'TV Series',
+              'start_year': 2002,
+            },
+            <String, Object?>{
+              'slug': 'naruto-web',
+              'main_title': 'Naruto',
+              'type': 'Web',
+              'start_year': 2002,
+            },
+          ]),
+        },
+      );
+
+      expect(await AniZoneProvider(client: client).match(_naruto), isNull);
+    });
+
+    test(
+      'a year mismatch still returns no match across compatible formats',
+      () async {
+        const Anime magicalExplorer = Anime(
+          id: 169581,
+          title: 'Magical Explorer',
+          englishTitle: 'Magical Explorer',
+          seasonYear: 2026,
+          format: 'ONA',
+        );
+        final _FakeAniZoneClient client = _FakeAniZoneClient(
+          searchPages: <String, String>{
+            'Magical Explorer': _searchPage(<Map<String, Object?>>[
+              <String, Object?>{
+                'slug': 'magical-explorer-2016',
+                'main_title': 'Magical Explorer',
+                'type': 'TV Series',
+                'start_year': 2016,
+              },
+            ]),
+          },
+        );
+
+        expect(
+          await AniZoneProvider(client: client).match(magicalExplorer),
+          isNull,
+        );
+      },
+    );
 
     test('nothing found is null, an unreachable source is a failure', () async {
       final _FakeAniZoneClient empty = _FakeAniZoneClient(

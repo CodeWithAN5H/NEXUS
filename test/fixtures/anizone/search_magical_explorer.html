@@ -1,0 +1,43 @@
+<html lang="en"><head><title>Anime &mdash; AniZone</title></head><body><div wire:snapshot="{&quot;data&quot;:{&quot;search&quot;:null},&quot;memo&quot;:{&quot;id&quot;:&quot;v8JS4zCvQ2ppbwWLpSHe&quot;,&quot;name&quot;:&quot;layout.navbar&quot;,&quot;path&quot;:&quot;anime&quot;,&quot;method&quot;:&quot;GET&quot;,&quot;release&quot;:&quot;a-a-a&quot;,&quot;children&quot;:[],&quot;scripts&quot;:[],&quot;assets&quot;:[],&quot;errors&quot;:[],&quot;locale&quot;:&quot;en&quot;},&quot;checksum&quot;:&quot;ddb39b5049255eda854849cfa4d1d994c40f8552b38094a15bf626ff5796e7b6&quot;}"></div>
+<div x-data="{
+        items: JSON.parse('[{\u0022slug\u0022:\u0022o7j39lwx\u0022,\u0022url\u0022:\u0022http:\\\/\\\/anizone.to\\\/anime\\\/o7j39lwx\u0022,\u0022cover\u0022:\u0022https:\\\/\\\/anizone.to\\\/images\\\/anime\\\/72cdda6b-cf5d-41fc-b867-e9933bea1490.jpg\u0022,\u0022main_title\u0022:\u0022Magical Explorer\u0022,\u0022title_list\u0022:{\u00225\u0022:\u0022Magical Explorer\u0022,\u00228\u0022:\u0022\\u30de\\u30b8\\u30ab\\u30eb\\u2605\\u30a8\\u30af\\u30b9\\u30d7\\u30ed\\u30fc\\u30e9\\u30fc\u0022,\u00221\u0022:\u0022Magical Explorer\u0022,\u002238\u0022:\u0022\\u9b54\\u6cd5\\u2605\\u63a2\\u96aa\\u5bb6\u0022,\u00229\u0022:\u0022\\u9b54\\u6cd5\\u2605\\u63a2\\u9669\\u5bb6\u0022},\u0022type\u0022:\u0022TV Series\u0022,\u0022is_ongoing\u0022:true,\u0022is_unsafe\u0022:false,\u0022start_year\u0022:2026,\u0022episode_count\u0022:13,\u0022tags\u0022:[{\u0022slug\u0022:\u00222ch5lzak\u0022,\u0022url\u0022:\u0022http:\\\/\\\/anizone.to\\\/tag\\\/2ch5lzak\u0022,\u0022name\u0022:\u0022Novel\u0022},{\u0022slug\u0022:\u00228euvyf6d\u0022,\u0022url\u0022:\u0022http:\\\/\\\/anizone.to\\\/tag\\\/8euvyf6d\u0022,\u0022name\u0022:\u0022Isekai\u0022},{\u0022slug\u0022:\u0022fxndqllf\u0022,\u0022url\u0022:\u0022http:\\\/\\\/anizone.to\\\/tag\\\/fxndqllf\u0022,\u0022name\u0022:\u0022Shounen\u0022}]}]'),
+        nextCursor: null,
+        hasMore: false,
+        loading: false,
+        view: 'list',
+
+        get activeGridItems() {
+            return this.view === 'grid' ? this.items : [];
+        },
+
+        get activeListItems() {
+            return this.view === 'list' ? this.items : [];
+        },
+
+        init() {
+            const match = document.cookie.match(/(?:^|; )anime-view=([^;]*)/);
+            if (match) {
+                this.view = decodeURIComponent(match[1]);
+            }
+        },
+
+        setView(newView) {
+            this.view = newView;
+            document.cookie = `anime-view=${newView}; path=/; max-age=31536000; SameSite=Lax`;
+        },
+
+        getTitle(anime) {
+            return window.getTitle(anime.title_list, anime.main_title);
+        },
+
+        isBlurred(anime) {
+            return anime.is_unsafe && (window.getUnsafeState?.().blur ?? false);
+        },
+
+        loadMore() {
+            if (this.loading || !this.hasMore || !this.nextCursor) return;
+            this.loading = true;
+            $wire.loadPage(this.nextCursor);
+        }
+    }"></div>
+</body></html>

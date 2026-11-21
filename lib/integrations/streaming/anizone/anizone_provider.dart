@@ -512,12 +512,25 @@ class AniZoneProvider extends StreamingProvider implements EpisodeListNotice {
     return (2 * overlap) / ((a.length - 1) + (b.length - 1));
   }
 
+  /// A format mismatch only vetoes a match when the two labels disagree about
+  /// *what kind of thing* the title is.
+  ///
+  /// AniList splits an episodic series into `TV` (broadcast) and `ONA`
+  /// (streaming-first), while AniZone labels the same series `TV Series` or
+  /// `Web` without that split — Magical Explorer is `ONA` on AniList and
+  /// `TV Series` on AniZone. Both labels mean "episodic series", so that one
+  /// boundary must not discard an otherwise exact match. Movies, OVAs, specials
+  /// and shorts still veto, and the exact-format scoring bonus is unchanged.
   static bool _formatsAgree(String? animeFormat, String? siteFormat) {
     final String? left = _normaliseFormat(animeFormat);
     final String? right = _normaliseFormat(siteFormat);
     if (left == null || right == null) return true;
-    return left == right;
+    if (left == right) return true;
+    return _isEpisodicSeries(left) && _isEpisodicSeries(right);
   }
+
+  static bool _isEpisodicSeries(String format) =>
+      format == 'TV' || format == 'ONA';
 
   /// Maps both vocabularies onto `TV`, `TV_SHORT`, `MOVIE`, `OVA`, `ONA`,
   /// `SPECIAL`; unknown labels return `null` (treated as "no opinion").

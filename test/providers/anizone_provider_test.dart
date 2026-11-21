@@ -601,4 +601,56 @@ void main() {
       await registry.byId('anizone')!.dispose();
     });
   });
+
+  group('selected-episode fast path', () {
+    test('AniZone describes a number without touching the network', () async {
+      // The client fails every request: success proves nothing was fetched.
+      final _FakeAniZoneClient client = _FakeAniZoneClient(
+        seriesError: const ProviderUpstreamError(
+          providerId: 'anizone',
+          message: 'offline',
+        ),
+        playlistError: const ProviderUpstreamError(
+          providerId: 'anizone',
+          message: 'offline',
+        ),
+      );
+      final AniZoneProvider provider = AniZoneProvider(client: client);
+      const ProviderSeries series = ProviderSeries(
+        providerId: 'anizone',
+        seriesId: 'spjuxray',
+        title: 'Naruto',
+      );
+
+      final ProviderEpisode? episode = await provider.episodeByNumber(
+        series,
+        42,
+      );
+
+      expect(episode, isNotNull);
+      expect(episode!.number, 42);
+      expect(episode.episodeId, '42');
+      expect(episode.seriesId, 'spjuxray');
+      expect(episode.providerId, 'anizone');
+      expect(client.continuationCalls, 0);
+    });
+
+    test('providers without a fast path ask for the full list', () async {
+      final registry = buildStreamingProviderRegistry();
+      final sample = registry.byId('sample')!;
+
+      expect(
+        await sample.episodeByNumber(
+          const ProviderSeries(
+            providerId: 'sample',
+            seriesId: 'series-1',
+            title: 'Sample',
+          ),
+          1,
+        ),
+        isNull,
+      );
+      await sample.dispose();
+    });
+  });
 }

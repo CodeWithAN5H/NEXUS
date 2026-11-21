@@ -5,6 +5,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../providers/provider_failure.dart';
 import '../streaming/streaming_provider.dart';
+import 'playback_reliability.dart';
 
 /// The app's playback abstraction.
 ///
@@ -43,6 +44,12 @@ class PlaybackSession {
   /// URI of the variant currently loaded, for diagnostics.
   Uri? get loadedUri => _loadedUri;
 
+  /// Tracks the current load so a superseded load cannot seek a newer session.
+  final PlaybackAttempts _attempts = PlaybackAttempts();
+
+  /// Token of the load currently owning the player.
+  int get generation => _attempts.current;
+
   /// Opens [stream], choosing the best variant for [preferredHeight].
   ///
   /// Position cannot be passed to `open`, so a resume offset is applied as soon
@@ -64,18 +71,21 @@ class PlaybackSession {
     }
 
     _loadedUri = variant.uri;
+    final int attempt = _attempts.begin();
     await player.open(
       Media(variant.uri.toString(), httpHeaders: stream.headers),
       play: true,
     );
+    // A newer load owns the player now: never seek the wrong media.
+    if (!_attempts.isCurrent(attempt)) return variant;
 
     if (startAt != null && startAt > const Duration(seconds: 2)) {
-      unawaited(_seekWhenReady(startAt));
+      unawaited(_seekWhenReady(startAt, attempt: attempt));
     }
     return variant;
   }
 
-  Future<void> _seekWhenReady(Duration target) async {
+  Future<void> _seekWhenReady(Duration target, {required int attempt}) async {
     final Completer<void> completer = Completer<void>();
     late final StreamSubscription<Duration> subscription;
     subscription = durationStream.listen((Duration duration) {
@@ -90,6 +100,8 @@ class PlaybackSession {
     );
     await subscription.cancel();
     if (!completer.isCompleted) return;
+    // The resume decision is only valid while its own load is current.
+    if (!_attempts.isCurrent(attempt)) return;
     // Clamp so a previously finished episode does not seek past the end.
     final Duration duration = player.state.duration;
     final Duration safe = target >= duration
@@ -147,5 +159,9 @@ class PlaybackSession {
     return null;
   }
 
-  Future<void> dispose() => player.dispose();
+  Future<void> dispose() {
+    // Late resumes must not touch a disposed player.
+    _attempts.invalidate();
+    return player.dispose();
+  }
 }

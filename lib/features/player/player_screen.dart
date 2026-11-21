@@ -18,6 +18,7 @@ import '../../data/providers/app_providers.dart';
 import '../../data/providers/content_providers.dart';
 import '../../data/repositories/history_repository.dart';
 import '../../data/repositories/library_repository.dart';
+import '../../integrations/playback/playback_reliability.dart';
 import '../../integrations/playback/playback_session.dart';
 import '../../integrations/providers/provider_failure.dart';
 import '../../integrations/providers/provider_resolver.dart';
@@ -71,6 +72,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Timer? _progressTimer;
   Timer? _feedbackTimer;
 
+  /// Guards async loads so a superseded attempt cannot overwrite newer state.
+  final PlaybackAttempts _attempts = PlaybackAttempts();
+  bool _disposed = false;
+
+  /// True once this attempt actually rendered advancing playback.
+  bool _everProgressed = false;
+
+  /// Pending error evaluation (a raw mpv error line is not terminal by itself).
+  Timer? _errorTimer;
+  int _errorProbe = 0;
+
+  /// Watches a non-fatal error line for a stall that only becomes visible once
+  /// buffered playback runs out. Without it, an ignored network failure could
+  /// leave a frozen player with no message.
+  Timer? _stallWatch;
+
   @override
   void initState() {
     super.initState();
@@ -87,9 +104,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   void _attachListeners() {
     _subscriptions.add(
-      _session.positionStream.listen(
-        (Duration value) => _position.value = value,
-      ),
+      _session.positionStream.listen((Duration value) {
+        _position.value = value;
+        if (!_everProgressed && value > const Duration(seconds: 1)) {
+          _everProgressed = true;
+        }
+      }),
     );
     _subscriptions.add(
       _session.durationStream.listen(
@@ -117,14 +137,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
     _subscriptions.add(
       _session.errorStream.listen((String message) {
-        if (!mounted) return;
-        setState(() {
-          _error = ProviderUpstreamError(
-            providerId: _request.providerId,
-            message: message,
-          );
-          _loading = false;
-        });
+        if (!mounted || _disposed) return;
+        _onPlayerError(message);
       }),
     );
     _subscriptions.add(
@@ -144,7 +158,159 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   // ── Loading ────────────────────────────────────────────────────────────────
 
+  /// Handles one raw media_kit error line.
+  ///
+  /// media_kit forwards every mpv log line at level `error`, including
+  /// recoverable decoder fallbacks. The line is therefore evaluated against
+  /// observed playback health before it is allowed to replace the UI.
+  void _onPlayerError(String message) {
+    final PlaybackErrorKind kind = classifyPlaybackError(message);
+
+    // A decoder line after frames rendered means a decoder was replaced.
+    if (kind == PlaybackErrorKind.decoder && _everProgressed) {
+      _watchForStall(message);
+      return;
+    }
+
+    _evaluateError(
+      message: message,
+      kind: kind,
+      attempt: _attempts.current,
+      probe: ++_errorProbe,
+      positionAtIssue: _position.value,
+      wasPlaying: _session.isPlaying,
+      rearms: 3,
+    );
+  }
+
+  /// Gives the player a short window to prove it is still rendering before an
+  /// error line is allowed to replace the UI. Buffering extends the window,
+  /// because a buffering player cannot advance its position.
+  void _evaluateError({
+    required String message,
+    required PlaybackErrorKind kind,
+    required int attempt,
+    required int probe,
+    required Duration positionAtIssue,
+    required bool wasPlaying,
+    required int rearms,
+  }) {
+    _errorTimer?.cancel();
+    final Duration delay = kind == PlaybackErrorKind.decoder
+        ? const Duration(seconds: 4)
+        : const Duration(milliseconds: 1200);
+
+    _errorTimer = Timer(delay, () {
+      if (!mounted ||
+          _disposed ||
+          probe != _errorProbe ||
+          !_attempts.isCurrent(attempt)) {
+        return;
+      }
+      if (_buffering.value && rearms > 0) {
+        _evaluateError(
+          message: message,
+          kind: kind,
+          attempt: attempt,
+          probe: probe,
+          positionAtIssue: _position.value,
+          wasPlaying: wasPlaying || _session.isPlaying,
+          rearms: rearms - 1,
+        );
+        return;
+      }
+      final bool progressingNow =
+          _position.value > positionAtIssue + const Duration(milliseconds: 400);
+      final bool terminal = shouldSurfacePlaybackError(
+        kind: kind,
+        hasProgressed: _everProgressed,
+        progressingNow: progressingNow,
+        playing: wasPlaying || _session.isPlaying,
+      );
+      if (!terminal) {
+        // Rendering now, but the failure may resurface when the buffer drains.
+        _watchForStall(message);
+        return;
+      }
+      _surfaceFatal(message);
+    });
+  }
+
+  /// Surfaces [message] once playback stops advancing, so a genuinely dead
+  /// stream cannot hide behind buffered frames for ever.
+  void _watchForStall(String message) {
+    _stallWatch?.cancel();
+    final PlaybackStallTracker tracker = PlaybackStallTracker();
+    tracker.observe(_position.value, playing: true);
+
+    _stallWatch = Timer.periodic(const Duration(seconds: 2), (Timer timer) {
+      if (!mounted || _disposed || _error != null) {
+        timer.cancel();
+        return;
+      }
+      if (!_playing.value) {
+        // Paused or already stopped: nothing to watch until it plays again.
+        timer.cancel();
+        return;
+      }
+      if (tracker.observe(_position.value, playing: true)) {
+        timer.cancel();
+        _surfaceFatal(message);
+        return;
+      }
+      if (tracker.expired) timer.cancel();
+    });
+  }
+
+  void _surfaceFatal(String message) {
+    _errorTimer?.cancel();
+    _stallWatch?.cancel();
+    if (!mounted || _disposed) return;
+    setState(() {
+      _error = ProviderUpstreamError(
+        providerId: _request.providerId,
+        message: message,
+      );
+      _loading = false;
+    });
+  }
+
+  /// A cached descriptor for [number] from the last episode list, if it belongs
+  /// to [series].
+  ProviderEpisode? _cachedEpisode(ProviderSeries series, int number) {
+    for (final ProviderEpisode episode in _episodes) {
+      if (episode.number == number && episode.seriesId == series.seriesId) {
+        return episode;
+      }
+    }
+    return null;
+  }
+
+  /// Loads the episode list after playback started, so long pagination never
+  /// delays the selected episode. Stale attempts are ignored.
+  Future<void> _loadEpisodeList(
+    StreamingProvider provider,
+    ProviderSeries series,
+    int attempt,
+  ) async {
+    try {
+      final List<ProviderEpisode> episodes = await provider.episodes(series);
+      if (!mounted || _disposed || !_attempts.isCurrent(attempt)) return;
+      if (episodes.isEmpty) return;
+      setState(() => _episodes = episodes);
+    } catch (_) {
+      // Navigation data must never fail a session that is already playing.
+    }
+  }
+
   Future<void> _load() async {
+    final int attempt = _attempts.begin();
+    _errorTimer?.cancel();
+    _stallWatch?.cancel();
+    _errorProbe++;
+    _everProgressed = false;
+    _position.value = Duration.zero;
+    _duration.value = Duration.zero;
     setState(() {
       _loading = true;
       _error = null;
@@ -173,6 +339,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         provider = again.provider;
         resolvedSeries = again.series;
         _request = _request.copyWith(seriesId: again.series.seriesId);
+        if (!_attempts.isCurrent(attempt)) return;
       }
 
       final ProviderSeries series =
@@ -182,50 +349,74 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             seriesId: _request.seriesId,
             title: _request.animeTitle,
           );
-      final List<ProviderEpisode> episodes = await provider.episodes(series);
-      if (episodes.isEmpty) {
-        throw ProviderNotFound(
-          providerId: provider.id,
-          message: 'This source returned no episodes for the title.',
+      // A known episode descriptor lets the selected episode start without
+      // waiting for long-series pagination. Providers that cannot answer
+      // without the list return null and keep the original behaviour.
+      List<ProviderEpisode>? episodes;
+      ProviderEpisode? episode = _cachedEpisode(series, _request.episodeNumber);
+      episode ??= await provider.episodeByNumber(
+        series,
+        _request.episodeNumber,
+      );
+      if (!_attempts.isCurrent(attempt) || !mounted) return;
+
+      if (episode == null) {
+        final List<ProviderEpisode> loaded = await provider.episodes(series);
+        if (!_attempts.isCurrent(attempt) || !mounted) return;
+        if (loaded.isEmpty) {
+          throw ProviderNotFound(
+            providerId: provider.id,
+            message: 'This source returned no episodes for the title.',
+          );
+        }
+        episodes = loaded;
+        episode = loaded.firstWhere(
+          (ProviderEpisode item) => item.number == _request.episodeNumber,
+          orElse: () => loaded.first,
         );
       }
-      final ProviderEpisode episode = episodes.firstWhere(
-        (ProviderEpisode item) => item.number == _request.episodeNumber,
-        orElse: () => episodes.first,
-      );
+      final ProviderEpisode selected = episode;
 
-      final EpisodeStream stream = await provider.resolve(series, episode);
+      final EpisodeStream stream = await provider.resolve(series, selected);
+      if (!_attempts.isCurrent(attempt) || !mounted) return;
       final StreamVariant variant = await _session.load(
         stream,
         preferredHeight: _settings.preferredQualityHeight == 0
             ? null
             : _settings.preferredQualityHeight,
-        startAt: await _resumePosition(episode.number),
+        startAt: await _resumePosition(selected.number),
       );
+      if (!_attempts.isCurrent(attempt) || !mounted) return;
 
-      if (!mounted) return;
+      final List<ProviderEpisode>? listed = episodes;
       setState(() {
-        _episodes = episodes;
+        if (listed != null) _episodes = listed;
         _stream = stream;
         _variants = stream.variants;
         _variant = variant;
-        _request = _request.copyWith(episodeNumber: episode.number);
+        _request = _request.copyWith(episodeNumber: selected.number);
         _loading = false;
       });
+      if (!_attempts.isCurrent(attempt)) return;
       await _session.setRate(_rate);
+
+      // The list only powers episode navigation; fetch it after playback starts.
+      if (episodes == null) {
+        unawaited(_loadEpisodeList(provider, series, attempt));
+      }
     } on ProviderFailure catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _error = error;
-        _loading = false;
-      });
+      _failLoad(attempt, error);
     } on Object catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _error = error;
-        _loading = false;
-      });
+      _failLoad(attempt, error);
     }
+  }
+
+  void _failLoad(int attempt, Object error) {
+    if (!mounted || _disposed || !_attempts.isCurrent(attempt)) return;
+    setState(() {
+      _error = error;
+      _loading = false;
+    });
   }
 
   Future<Duration?> _resumePosition(int episodeNumber) async {
@@ -542,7 +733,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Future<void> _showEpisodeMenu() async {
-    if (_episodes.isEmpty) return;
+    if (_episodes.isEmpty) {
+      showNexusMessage(context, 'The episode list is still loading.');
+      return;
+    }
     final ProviderEpisode? selected = await showPlayerMenu<ProviderEpisode>(
       context: context,
       title: 'Episodes',
@@ -625,6 +819,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
+    _attempts.invalidate();
+    _errorTimer?.cancel();
+    _stallWatch?.cancel();
     _hideTimer?.cancel();
     _progressTimer?.cancel();
     _feedbackTimer?.cancel();
@@ -754,100 +952,122 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 builder: (BuildContext context, bool playing, _) {
                                   return ValueListenableBuilder<bool>(
                                     valueListenable: _buffering,
-                                    builder: (BuildContext context, bool buffering, _) {
-                                      return ValueListenableBuilder<double>(
-                                        valueListenable: _volume,
-                                        builder:
-                                            (
-                                              BuildContext context,
-                                              double volume,
-                                              _,
-                                            ) {
-                                              return PlayerControls(
-                                                state: PlayerControlsState(
-                                                  title: _request.animeTitle,
-                                                  subtitle:
-                                                      '$_request.label'
-                                                      '${_request.episodeTitle == null ? '' : ' · ${_request.episodeTitle}'}',
-                                                  playing: playing,
-                                                  buffering: buffering,
-                                                  position: position,
-                                                  duration: duration,
-                                                  visible: _controlsVisible,
-                                                  qualityLabel:
-                                                      _variant?.label ?? 'Auto',
-                                                  subtitleLabel: 'CC',
-                                                  audioLabel: 'Audio',
-                                                  speed: _rate,
-                                                  volume: volume,
-                                                  hasNext: _nextEpisode != null,
-                                                  fullscreen: _fullscreen,
-                                                  notice: _stream?.notice,
-                                                  isSample:
-                                                      _stream?.isSample ??
-                                                      false,
-                                                ),
-                                                actions: PlayerControlsActions(
-                                                  onBack: _exit,
-                                                  onTogglePlay: () =>
-                                                      unawaited(_togglePlay()),
-                                                  onSeek: (Duration value) =>
-                                                      unawaited(
-                                                        _session.seek(value),
-                                                      ),
-                                                  onSeekBack: () => unawaited(
-                                                    _seekBy(
-                                                      const Duration(
-                                                        seconds: -10,
-                                                      ),
+                                    builder:
+                                        (
+                                          BuildContext context,
+                                          bool buffering,
+                                          _,
+                                        ) {
+                                          return ValueListenableBuilder<double>(
+                                            valueListenable: _volume,
+                                            builder:
+                                                (
+                                                  BuildContext context,
+                                                  double volume,
+                                                  _,
+                                                ) {
+                                                  return PlayerControls(
+                                                    state: PlayerControlsState(
+                                                      title:
+                                                          _request.animeTitle,
+                                                      subtitle: _request
+                                                          .playerSubtitle,
+                                                      playing: playing,
+                                                      buffering: buffering,
+                                                      position: position,
+                                                      duration: duration,
+                                                      visible: _controlsVisible,
+                                                      qualityLabel:
+                                                          _variant?.label ??
+                                                          'Auto',
+                                                      subtitleLabel: 'CC',
+                                                      audioLabel: 'Audio',
+                                                      speed: _rate,
+                                                      volume: volume,
+                                                      hasNext:
+                                                          _nextEpisode != null,
+                                                      fullscreen: _fullscreen,
+                                                      notice: _stream?.notice,
+                                                      isSample:
+                                                          _stream?.isSample ??
+                                                          false,
                                                     ),
-                                                  ),
-                                                  onSeekForward: () =>
-                                                      unawaited(
-                                                        _seekBy(
-                                                          const Duration(
-                                                            seconds: 10,
+                                                    actions: PlayerControlsActions(
+                                                      onBack: _exit,
+                                                      onTogglePlay: () =>
+                                                          unawaited(
+                                                            _togglePlay(),
                                                           ),
-                                                        ),
+                                                      onSeek:
+                                                          (Duration value) =>
+                                                              unawaited(
+                                                                _session.seek(
+                                                                  value,
+                                                                ),
+                                                              ),
+                                                      onSeekBack: () =>
+                                                          unawaited(
+                                                            _seekBy(
+                                                              const Duration(
+                                                                seconds: -10,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      onSeekForward: () =>
+                                                          unawaited(
+                                                            _seekBy(
+                                                              const Duration(
+                                                                seconds: 10,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      onNext: () {
+                                                        final ProviderEpisode?
+                                                        next = _nextEpisode;
+                                                        if (next != null) {
+                                                          unawaited(
+                                                            _playEpisode(next),
+                                                          );
+                                                        }
+                                                      },
+                                                      onQuality: () =>
+                                                          unawaited(
+                                                            _showQualityMenu(),
+                                                          ),
+                                                      onSubtitles: () =>
+                                                          unawaited(
+                                                            _showSubtitleMenu(),
+                                                          ),
+                                                      onAudio: () => unawaited(
+                                                        _showAudioMenu(),
                                                       ),
-                                                  onNext: () {
-                                                    final ProviderEpisode?
-                                                    next = _nextEpisode;
-                                                    if (next != null) {
-                                                      unawaited(
-                                                        _playEpisode(next),
-                                                      );
-                                                    }
-                                                  },
-                                                  onQuality: () => unawaited(
-                                                    _showQualityMenu(),
-                                                  ),
-                                                  onSubtitles: () => unawaited(
-                                                    _showSubtitleMenu(),
-                                                  ),
-                                                  onAudio: () => unawaited(
-                                                    _showAudioMenu(),
-                                                  ),
-                                                  onSpeed: () => unawaited(
-                                                    _showSpeedMenu(),
-                                                  ),
-                                                  onEpisodes: () => unawaited(
-                                                    _showEpisodeMenu(),
-                                                  ),
-                                                  onFullscreen: () => unawaited(
-                                                    _toggleFullscreen(),
-                                                  ),
-                                                  onToggleMute: () =>
-                                                      unawaited(_toggleMute()),
-                                                  onVolume: (double value) =>
-                                                      unawaited(
-                                                        _setVolume(value),
+                                                      onSpeed: () => unawaited(
+                                                        _showSpeedMenu(),
                                                       ),
-                                                ),
-                                              );
-                                            },
-                                      );
-                                    },
+                                                      onEpisodes: () =>
+                                                          unawaited(
+                                                            _showEpisodeMenu(),
+                                                          ),
+                                                      onFullscreen: () =>
+                                                          unawaited(
+                                                            _toggleFullscreen(),
+                                                          ),
+                                                      onToggleMute: () =>
+                                                          unawaited(
+                                                            _toggleMute(),
+                                                          ),
+                                                      onVolume:
+                                                          (double value) =>
+                                                              unawaited(
+                                                                _setVolume(
+                                                                  value,
+                                                                ),
+                                                              ),
+                                                    ),
+                                                  );
+                                                },
+                                          );
+                                        },
                                   );
                                 },
                               );

@@ -153,7 +153,8 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
               ),
               const SizedBox(height: 2),
               Text(
-                'S${progress.episodeNumber} · ${Formatters.percent(progress.fraction)} · '
+                'Episode ${progress.episodeNumber} · '
+                '${Formatters.percent(progress.fraction)} · '
                 '${Formatters.clock(progress.remaining)} left',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

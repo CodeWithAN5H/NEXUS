@@ -248,6 +248,17 @@ abstract class StreamingProvider extends ProviderDescriptor {
     String? seasonId,
   });
 
+  /// A descriptor for [number] when the provider can produce one without
+  /// loading the whole episode list.
+  ///
+  /// Returning `null` (the default) tells the caller to fetch the full list.
+  /// This lets a player start a selected episode without waiting for long
+  /// series pagination; the list is still loaded afterwards for navigation.
+  Future<ProviderEpisode?> episodeByNumber(
+    ProviderSeries series,
+    int number,
+  ) async => null;
+
   /// Resolves playable streams for [episode].
   Future<EpisodeStream> resolve(ProviderSeries series, ProviderEpisode episode);
 

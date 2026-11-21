@@ -269,6 +269,23 @@ class AniZoneProvider extends StreamingProvider implements EpisodeListNotice {
     ];
   }
 
+  /// AniZone addresses an episode by its number, so the player can resolve the
+  /// selected episode without paginating the whole series first.
+  @override
+  Future<ProviderEpisode?> episodeByNumber(
+    ProviderSeries series,
+    int number,
+  ) async {
+    if (number < 1) return null;
+    return ProviderEpisode(
+      providerId: providerId,
+      seriesId: series.seriesId,
+      episodeId: '$number',
+      number: number,
+      title: 'Episode $number',
+    );
+  }
+
   @override
   Future<EpisodeStream> resolve(
     ProviderSeries series,

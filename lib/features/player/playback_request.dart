@@ -34,6 +34,10 @@ class PlaybackRequest {
 
   String get label => 'Episode $episodeNumber';
 
+  /// Header line: episode plus its title when the source supplied one.
+  String get playerSubtitle =>
+      episodeTitle == null ? label : '$label · $episodeTitle';
+
   PlaybackRequest copyWith({
     int? episodeNumber,
     String? episodeTitle,

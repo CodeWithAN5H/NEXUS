@@ -247,7 +247,7 @@ class _HeaderBlock extends StatelessWidget {
                     ),
                   if (anime.format != null) MetaChip(label: anime.format!),
                   if (anime.seasonYear != null)
-                    MetaChip(label: '$anime.seasonYear'),
+                    MetaChip(label: Formatters.year(anime.seasonYear)),
                   if (anime.releaseLabel != null)
                     MetaChip(
                       label: anime.releaseLabel!,

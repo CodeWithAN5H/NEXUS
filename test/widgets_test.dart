@@ -214,6 +214,7 @@ void main() {
       bool playing = false,
       bool visible = true,
       bool hasNext = true,
+      String qualityLabel = '1080p',
     }) {
       return PlayerControlsState(
         title: 'Frieren',
@@ -223,7 +224,7 @@ void main() {
         position: const Duration(minutes: 12, seconds: 34),
         duration: const Duration(minutes: 24, seconds: 17),
         visible: visible,
-        qualityLabel: '1080p',
+        qualityLabel: qualityLabel,
         subtitleLabel: 'CC',
         audioLabel: 'Audio',
         speed: 1,
@@ -239,6 +240,8 @@ void main() {
       VoidCallback? onTogglePlay,
       VoidCallback? onSeekForward,
       VoidCallback? onQuality,
+      VoidCallback? onNext,
+      VoidCallback? onFullscreen,
     }) {
       return PlayerControlsActions(
         onBack: () {},
@@ -246,13 +249,13 @@ void main() {
         onSeek: (Duration _) {},
         onSeekBack: () {},
         onSeekForward: onSeekForward ?? () {},
-        onNext: () {},
+        onNext: onNext ?? () {},
         onQuality: onQuality ?? () {},
         onSubtitles: () {},
         onAudio: () {},
         onSpeed: () {},
         onEpisodes: () {},
-        onFullscreen: () {},
+        onFullscreen: onFullscreen ?? () {},
         onToggleMute: () {},
         onVolume: (double _) {},
       );
@@ -315,6 +318,102 @@ void main() {
         warnIfMissed: false,
       );
       expect(plays, 0);
+    });
+
+    Future<void> pumpAt(
+      WidgetTester tester,
+      Size size, {
+      PlayerControlsState? playerState,
+      PlayerControlsActions? playerActions,
+    }) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _wrap(
+          PlayerControls(
+            state: playerState ?? state(),
+            actions: playerActions ?? actions(),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets(
+      'keeps every bottom-bar control on screen at phone portrait width',
+      (WidgetTester tester) async {
+        int next = 0;
+        int fullscreen = 0;
+        await pumpAt(
+          tester,
+          const Size(393, 852),
+          playerState: state(qualityLabel: 'Auto (up to 1080p)'),
+          playerActions: actions(
+            onNext: () => next++,
+            onFullscreen: () => fullscreen++,
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Auto (up to 1080p)'), findsOneWidget);
+        expect(find.text('CC'), findsOneWidget);
+        expect(find.text('Audio'), findsOneWidget);
+        expect(find.byTooltip('Next episode'), findsOneWidget);
+        expect(find.byTooltip('Fullscreen'), findsOneWidget);
+
+        // The regression: these used to be laid out past the right edge.
+        final Rect quality = tester.getRect(find.text('Auto (up to 1080p)'));
+        final Rect nextRect = tester.getRect(find.byTooltip('Next episode'));
+        final Rect fullscreenRect = tester.getRect(
+          find.byTooltip('Fullscreen'),
+        );
+        expect(quality.right, lessThanOrEqualTo(393));
+        expect(nextRect.right, lessThanOrEqualTo(393));
+        expect(fullscreenRect.right, lessThanOrEqualTo(393));
+
+        await tester.tap(find.byTooltip('Next episode'));
+        await tester.tap(find.byTooltip('Fullscreen'));
+        expect(next, 1);
+        expect(fullscreen, 1);
+      },
+    );
+
+    testWidgets('fits a narrower portrait width without overflow', (
+      WidgetTester tester,
+    ) async {
+      await pumpAt(
+        tester,
+        const Size(360, 740),
+        playerState: state(qualityLabel: 'Auto (up to 1080p)'),
+      );
+
+      expect(tester.takeException(), isNull);
+      final Rect fullscreenRect = tester.getRect(find.byTooltip('Fullscreen'));
+      expect(fullscreenRect.right, lessThanOrEqualTo(360));
+      final Rect quality = tester.getRect(find.text('Auto (up to 1080p)'));
+      expect(quality.right, lessThanOrEqualTo(360));
+    });
+
+    testWidgets('keeps the single-row layout in landscape', (
+      WidgetTester tester,
+    ) async {
+      await pumpAt(
+        tester,
+        const Size(875, 393),
+        playerState: state(qualityLabel: 'Auto (up to 1080p)'),
+      );
+
+      expect(tester.takeException(), isNull);
+      final double ccY = tester.getCenter(find.text('CC')).dy;
+      final double qualityY = tester
+          .getCenter(find.text('Auto (up to 1080p)'))
+          .dy;
+      expect(qualityY, closeTo(ccY, 1));
+      expect(
+        tester.getRect(find.byTooltip('Fullscreen')).right,
+        lessThanOrEqualTo(875),
+      );
     });
   });
 }

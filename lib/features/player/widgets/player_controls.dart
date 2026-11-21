@@ -350,72 +350,131 @@ class _BottomBar extends StatelessWidget {
               ),
             ],
           ),
-          Row(
-            children: <Widget>[
-              _CircleIcon(
-                icon: state.volume <= 0
-                    ? Icons.volume_off_rounded
-                    : (state.volume < 50
-                          ? Icons.volume_down_rounded
-                          : Icons.volume_up_rounded),
-                tooltip: 'Mute',
-                onPressed: actions.onToggleMute,
-              ),
-              SizedBox(
-                width: 84,
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: 2,
-                    activeTrackColor: AppColors.textSecondary,
-                    inactiveTrackColor: AppColors.surfaceElevated,
-                    thumbColor: AppColors.textPrimary,
-                    thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 5,
-                    ),
-                    overlayShape: SliderComponentShape.noOverlay,
+          LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              // The single row needs roughly 430dp once the quality pill shows a
+              // full label such as "Auto (up to 1080p)". Phones in portrait are
+              // narrower, and a Row silently clips what does not fit (release
+              // builds hide the overflow stripe), which pushed Next and
+              // Fullscreen off-screen. Reflow the same controls onto two lines
+              // when space is tight; sizes, order and styling are unchanged.
+              if (constraints.maxWidth >= _wideRowWidth) {
+                return Row(
+                  children: <Widget>[
+                    _volumeControls(),
+                    const Spacer(),
+                    _menuControls(),
+                    _qualityControl(),
+                    _trailingControls(),
+                  ],
+                );
+              }
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      _volumeControls(),
+                      const Spacer(),
+                      _menuControls(),
+                    ],
                   ),
-                  child: Slider(
-                    value: state.volume.clamp(0, 100),
-                    max: 100,
-                    onChanged: actions.onVolume,
+                  const SizedBox(height: AppSpacing.xxs),
+                  Row(
+                    children: <Widget>[
+                      _qualityControl(),
+                      const Spacer(),
+                      _trailingControls(),
+                    ],
                   ),
-                ),
-              ),
-              const Spacer(),
-              _TextAction(
-                label: state.subtitleLabel,
-                onPressed: actions.onSubtitles,
-              ),
-              _TextAction(label: state.audioLabel, onPressed: actions.onAudio),
-              _TextAction(
-                label:
-                    '${state.speed.toStringAsFixed(state.speed % 1 == 0 ? 0 : 2)}×',
-                onPressed: actions.onSpeed,
-              ),
-              _TextAction(
-                label: state.qualityLabel,
-                onPressed: actions.onQuality,
-              ),
-              if (state.hasNext)
-                _CircleIcon(
-                  icon: Icons.skip_next_rounded,
-                  tooltip: 'Next episode',
-                  onPressed: actions.onNext,
-                ),
-              _CircleIcon(
-                icon: state.fullscreen
-                    ? Icons.fullscreen_exit_rounded
-                    : Icons.fullscreen_rounded,
-                tooltip: 'Fullscreen',
-                onPressed: actions.onFullscreen,
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
+
+  Widget _volumeControls() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        _CircleIcon(
+          icon: state.volume <= 0
+              ? Icons.volume_off_rounded
+              : (state.volume < 50
+                    ? Icons.volume_down_rounded
+                    : Icons.volume_up_rounded),
+          tooltip: 'Mute',
+          onPressed: actions.onToggleMute,
+        ),
+        SizedBox(
+          width: 84,
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 2,
+              activeTrackColor: AppColors.textSecondary,
+              inactiveTrackColor: AppColors.surfaceElevated,
+              thumbColor: AppColors.textPrimary,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              overlayShape: SliderComponentShape.noOverlay,
+            ),
+            child: Slider(
+              value: state.volume.clamp(0, 100),
+              max: 100,
+              onChanged: actions.onVolume,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _menuControls() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        _TextAction(label: state.subtitleLabel, onPressed: actions.onSubtitles),
+        _TextAction(label: state.audioLabel, onPressed: actions.onAudio),
+        _TextAction(
+          label:
+              '${state.speed.toStringAsFixed(state.speed % 1 == 0 ? 0 : 2)}×',
+          onPressed: actions.onSpeed,
+        ),
+      ],
+    );
+  }
+
+  Widget _qualityControl() {
+    return _TextAction(label: state.qualityLabel, onPressed: actions.onQuality);
+  }
+
+  Widget _trailingControls() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (state.hasNext)
+          _CircleIcon(
+            icon: Icons.skip_next_rounded,
+            tooltip: 'Next episode',
+            onPressed: actions.onNext,
+          ),
+        _CircleIcon(
+          icon: state.fullscreen
+              ? Icons.fullscreen_exit_rounded
+              : Icons.fullscreen_rounded,
+          tooltip: 'Fullscreen',
+          onPressed: actions.onFullscreen,
+        ),
+      ],
+    );
+  }
 }
+
+// The single-row bottom bar needs about 430dp with a full quality label;
+// below this width the bar reflows onto two lines instead of clipping.
+const double _wideRowWidth = 560;
 
 class _CircleIcon extends StatelessWidget {
   const _CircleIcon({

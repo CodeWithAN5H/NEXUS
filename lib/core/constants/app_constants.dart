@@ -3,8 +3,8 @@
 abstract final class AppConstants {
   static const String appName = 'NEXUS';
   static const String tagline = 'Stream. Discover. Enjoy.';
-  static const String appVersion = '0.2.0-alpha.2';
-  static const int versionCode = 3;
+  static const String appVersion = '0.2.0-alpha.11';
+  static const int versionCode = 12;
 
   /// AniList GraphQL endpoint (metadata only — never video).
   static const String anilistEndpoint = 'https://graphql.anilist.co';
